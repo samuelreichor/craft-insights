@@ -1,0 +1,92 @@
+<style>
+.insights-realtime-widget {
+    text-align: center;
+    padding: 16px 0;
+}
+.insights-realtime-count {
+    font-size: 48px;
+    font-weight: 700;
+    color: #3B82F6;
+}
+.insights-realtime-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #10B981;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.insights-realtime-label {
+    font-size: 13px;
+    color: #6B7280;
+    margin-top: 8px;
+}
+.insights-realtime-pages {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #E5E7EB;
+    text-align: left;
+}
+.insights-realtime-page {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 4px 0;
+    color: #374151;
+}
+.insights-realtime-page .url {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+.insights-realtime-page .count {
+    font-weight: 600;
+    color: #3B82F6;
+}
+</style>
+
+<div class="insights-realtime-widget" id="realtime-widget-{{ siteId }}">
+    <div>
+        <span class="insights-realtime-indicator"></span>
+        <span class="insights-realtime-count">{{ realtime.count }}</span>
+    </div>
+    <div class="insights-realtime-label">{{ 'active visitors'|t('insights') }}</div>
+
+    {% if realtime.pages|length %}
+    <div class="insights-realtime-pages">
+        {% for page in realtime.pages|slice(0, 5) %}
+        <div class="insights-realtime-page">
+            <span class="url" title="{{ page.url }}">{{ page.url }}</span>
+            <span class="count">{{ page.count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    var widget = document.getElementById('realtime-widget-{{ siteId }}');
+    if (!widget) return;
+
+    setInterval(function() {
+        fetch('/actions/insights/dashboard/realtime-data?siteId={{ siteId }}', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var countEl = widget.querySelector('.insights-realtime-count');
+            if (countEl) countEl.textContent = data.count;
+        })
+        .catch(function() {});
+    }, 30000);
+})();
+</script>

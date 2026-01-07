@@ -1,0 +1,340 @@
+<?php
+
+namespace samuelreichor\insights\services;
+
+use Craft;
+use craft\base\Component;
+use craft\elements\Entry;
+use craft\helpers\Db;
+use samuelreichor\insights\Constants;
+use samuelreichor\insights\enums\DeviceType;
+use samuelreichor\insights\enums\ReferrerType;
+use samuelreichor\insights\enums\ScreenCategory;
+use samuelreichor\insights\Insights;
+use WhichBrowser\Parser;
+use yii\db\Expression;
+
+/**
+ * Tracking Service
+ *
+ * Handles all tracking logic. Ensures DSGVO compliance by:
+ * - Never storing IP addresses
+ * - Using aggregated data only
+ * - Storing only non-identifying attributes
+ */
+class TrackingService extends Component
+{
+    /**
+     * Process a pageview event.
+     *
+     * @param array<string, mixed> $data Tracking data from frontend
+     * @param string $userAgent User agent string
+     * @param string $ip IP address (used for GeoIP lookup only, NOT stored)
+     * @param int $siteId Site ID
+     * @param string|null $acceptLanguage Accept-Language header
+     */
+    public function processPageview(array $data, string $userAgent, string $ip, int $siteId, ?string $acceptLanguage = null): void
+    {
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('Pageview', ['siteId' => $siteId]);
+
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
+        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $screenCategory = $data['sc'] ?? ScreenCategory::Medium->value;
+
+        $logger->step('Pageview', 'URL sanitized', ['url' => $url, 'screenCategory' => $screenCategory]);
+
+        // Generate visitor hash
+        $logger->startTimer('visitorHash');
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        $logger->stopTimer('visitorHash');
+
+        // Find entry ID for this URL
+        $logger->startTimer('findEntry');
+        $entryId = $this->findEntryByUrl($url, $siteId);
+        $logger->stopTimer('findEntry', ['entryId' => $entryId]);
+
+        // Check if this is a new visitor for this URL today
+        $isNew = $this->isNewVisitor($visitorHash, $url, $siteId, $date);
+        $logger->step('Pageview', 'Visitor check', ['isNew' => $isNew]);
+
+        // Aggregate pageview (UPSERT)
+        // First array = INSERT values (used when row doesn't exist)
+        // Second array = UPDATE values (used when row exists)
+        $logger->startTimer('upsertPageview');
+        Db::upsert(Constants::TABLE_PAGEVIEWS, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'hour' => $hour,
+            'url' => $url,
+            'entryId' => $entryId,
+            'views' => 1,
+            'uniqueVisitors' => $isNew ? 1 : 0,
+            'bounces' => $isNew ? 1 : 0,
+        ], [
+            'views' => new Expression('[[views]] + 1'),
+            'uniqueVisitors' => $isNew
+                ? new Expression('[[uniqueVisitors]] + 1')
+                : new Expression('[[uniqueVisitors]]'),
+            'bounces' => $isNew
+                ? new Expression('[[bounces]] + 1')
+                : new Expression('[[bounces]]'),
+        ]);
+        $logger->stopTimer('upsertPageview');
+
+        // Track referrer
+        if (!empty($data['r'])) {
+            $logger->startTimer('trackReferrer');
+            $this->trackReferrer($data['r'], $siteId, $date);
+            $logger->stopTimer('trackReferrer', ['domain' => $data['r']]);
+        }
+
+        // Track UTM parameters
+        if (!empty($data['utm']['s'])) {
+            $logger->startTimer('trackCampaign');
+            $this->trackCampaign($data['utm'], $siteId, $date);
+            $logger->stopTimer('trackCampaign', ['source' => $data['utm']['s']]);
+        }
+
+        // Track device info
+        $logger->startTimer('trackDevice');
+        $this->trackDevice($userAgent, $siteId, $date);
+        $logger->stopTimer('trackDevice');
+
+        // Track country (IP -> Country -> IP discarded)
+        $logger->startTimer('geoipLookup');
+        $countryCode = Insights::getInstance()->geoip->getCountry($ip);
+        $logger->stopTimer('geoipLookup', ['countryCode' => $countryCode]);
+
+        if ($countryCode) {
+            $this->trackCountry($countryCode, $siteId, $date);
+        }
+
+        // Update realtime
+        $logger->startTimer('updateRealtime');
+        $this->updateRealtime($visitorHash, $url, $siteId);
+        $logger->stopTimer('updateRealtime');
+
+        $logger->endFeature('Pageview', ['url' => $url, 'isNew' => $isNew]);
+    }
+
+    /**
+     * Process an engagement event (user scrolled or clicked).
+     *
+     * @param array<string, mixed> $data Tracking data
+     * @param int $siteId Site ID
+     */
+    public function processEngagement(array $data, int $siteId): void
+    {
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('Engagement', ['siteId' => $siteId]);
+
+        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $date = date('Y-m-d');
+
+        // Decrement bounce count (use CASE to avoid UNSIGNED underflow)
+        $logger->startTimer('updateBounce');
+        Craft::$app->db->createCommand()
+            ->update(Constants::TABLE_PAGEVIEWS, [
+                'bounces' => new Expression('CASE WHEN [[bounces]] > 0 THEN [[bounces]] - 1 ELSE 0 END'),
+            ], [
+                'siteId' => $siteId,
+                'date' => $date,
+                'url' => $url,
+            ])
+            ->execute();
+        $logger->stopTimer('updateBounce');
+
+        $logger->endFeature('Engagement', ['url' => $url]);
+    }
+
+    /**
+     * Process a leave event (user left the page).
+     *
+     * @param array<string, mixed> $data Tracking data including time on page
+     * @param int $siteId Site ID
+     */
+    public function processLeave(array $data, int $siteId): void
+    {
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('Leave', ['siteId' => $siteId]);
+
+        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $time = min((int)($data['tm'] ?? 0), Constants::MAX_TIME_ON_PAGE);
+
+        $logger->step('Leave', 'Time on page', ['seconds' => $time, 'url' => $url]);
+
+        if ($time > 0) {
+            $logger->startTimer('updateTimeOnPage');
+            Craft::$app->db->createCommand()
+                ->update(Constants::TABLE_PAGEVIEWS, [
+                    'totalTimeOnPage' => new Expression("[[totalTimeOnPage]] + :time", [':time' => $time]),
+                ], [
+                    'siteId' => $siteId,
+                    'date' => date('Y-m-d'),
+                    'url' => $url,
+                ])
+                ->execute();
+            $logger->stopTimer('updateTimeOnPage');
+        }
+
+        $logger->endFeature('Leave', ['url' => $url, 'timeOnPage' => $time]);
+    }
+
+    /**
+     * Sanitize URL to only include path.
+     */
+    public function sanitizeUrl(string $url): string
+    {
+        $parsed = parse_url($url);
+        $path = $parsed['path'] ?? Constants::DEFAULT_PATH;
+
+        // Normalize
+        $path = rtrim($path, '/') ?: Constants::DEFAULT_PATH;
+
+        return substr($path, 0, Constants::MAX_URL_LENGTH);
+    }
+
+    /**
+     * Check if this is a new visitor for this URL today.
+     */
+    private function isNewVisitor(string $hash, string $url, int $siteId, string $date): bool
+    {
+        $key = Constants::CACHE_VISITOR . "{$siteId}_{$date}_{$hash}_" . md5($url);
+
+        if (Craft::$app->cache->exists($key)) {
+            return false;
+        }
+
+        // Cache until midnight
+        $ttl = strtotime('tomorrow') - time();
+        Craft::$app->cache->set($key, 1, $ttl);
+
+        return true;
+    }
+
+    /**
+     * Find entry by URL.
+     */
+    private function findEntryByUrl(string $url, int $siteId): ?int
+    {
+        // Try to find an entry matching this URL
+        $entry = Entry::find()
+            ->site('*')
+            ->siteId($siteId)
+            ->uri(ltrim($url, '/'))
+            ->status(null)
+            ->one();
+
+        return $entry?->id;
+    }
+
+    /**
+     * Track referrer domain.
+     */
+    private function trackReferrer(string $domain, int $siteId, string $date): void
+    {
+        $type = ReferrerType::fromDomain($domain);
+
+        Db::upsert(Constants::TABLE_REFERRERS, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'referrerDomain' => substr($domain, 0, 255),
+            'referrerType' => $type->value,
+            'visits' => 1,
+        ], [
+            'visits' => new Expression('[[visits]] + 1'),
+        ]);
+    }
+
+    /**
+     * Track UTM campaign.
+     *
+     * @param array<string, string|null> $utm UTM parameters
+     */
+    private function trackCampaign(array $utm, int $siteId, string $date): void
+    {
+        Db::upsert(Constants::TABLE_CAMPAIGNS, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'utmSource' => !empty($utm['s']) ? substr($utm['s'], 0, 100) : null,
+            'utmMedium' => !empty($utm['m']) ? substr($utm['m'], 0, 100) : null,
+            'utmCampaign' => !empty($utm['c']) ? substr($utm['c'], 0, 100) : null,
+            'utmTerm' => !empty($utm['t']) ? substr($utm['t'], 0, 100) : null,
+            'utmContent' => !empty($utm['n']) ? substr($utm['n'], 0, 100) : null,
+            'visits' => 1,
+        ], [
+            'visits' => new Expression('[[visits]] + 1'),
+        ]);
+    }
+
+    /**
+     * Track device and browser info.
+     */
+    private function trackDevice(string $userAgent, int $siteId, string $date): void
+    {
+        try {
+            $parser = new Parser($userAgent);
+
+            $deviceType = DeviceType::fromBrowserType($parser->device->type);
+            $browserFamily = $parser->browser->name ?: Constants::DEFAULT_UNKNOWN;
+            $osFamily = $parser->os->name ?: Constants::DEFAULT_UNKNOWN;
+
+            Db::upsert(Constants::TABLE_DEVICES, [
+                'siteId' => $siteId,
+                'date' => $date,
+                'deviceType' => $deviceType->value,
+                'browserFamily' => substr($browserFamily, 0, 50),
+                'osFamily' => substr($osFamily, 0, 50),
+                'visits' => 1,
+            ], [
+                'visits' => new Expression('[[visits]] + 1'),
+            ]);
+        } catch (\Throwable) {
+            // Silently ignore parsing errors
+        }
+    }
+
+    /**
+     * Track country.
+     */
+    private function trackCountry(string $countryCode, int $siteId, string $date): void
+    {
+        Db::upsert(Constants::TABLE_COUNTRIES, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'countryCode' => $countryCode,
+            'visits' => 1,
+        ], [
+            'visits' => new Expression('[[visits]] + 1'),
+        ]);
+    }
+
+    /**
+     * Update realtime visitor tracking.
+     */
+    private function updateRealtime(string $hash, string $url, int $siteId): void
+    {
+        $settings = Insights::getInstance()->getSettings();
+
+        // Delete old entries (older than TTL)
+        $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
+        Craft::$app->db->createCommand()
+            ->delete(Constants::TABLE_REALTIME, ['<', 'lastSeen', $cutoff])
+            ->execute();
+
+        $now = date('Y-m-d H:i:s');
+
+        // Update/insert current visitor
+        Db::upsert(Constants::TABLE_REALTIME, [
+            'siteId' => $siteId,
+            'visitorHash' => $hash,
+            'currentUrl' => $url,
+            'lastSeen' => $now,
+        ], [
+            'currentUrl' => $url,
+            'lastSeen' => $now,
+        ]);
+    }
+}

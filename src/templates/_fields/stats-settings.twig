@@ -1,0 +1,15 @@
+{% import '_includes/forms.twig' as forms %}
+
+{{ forms.selectField({
+    label: 'Default Date Range'|t('insights'),
+    instructions: 'The date range for the statistics display.'|t('insights'),
+    id: 'range',
+    name: 'range',
+    value: field.range,
+    options: [
+        { label: 'Last 7 Days'|t('insights'), value: '7d' },
+        { label: 'Last 30 Days'|t('insights'), value: '30d' },
+        { label: 'Last 90 Days'|t('insights'), value: '90d' },
+        { label: 'Last 12 Months'|t('insights'), value: '12m' },
+    ],
+}) }}

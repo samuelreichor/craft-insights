@@ -1,0 +1,269 @@
+{# @var plugin \samuelreichor\insights\Insights #}
+{# @var settings \samuelreichor\insights\models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+
+{# ========== TRACKING ========== #}
+<h2>{{ 'Tracking'|t('insights') }}</h2>
+
+{{ forms.lightswitchField({
+    label: 'Enable Tracking'|t('insights'),
+    instructions: 'Master switch to enable or disable all tracking.'|t('insights'),
+    name: 'enabled',
+    on: settings.enabled,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Track Pageviews'|t('insights'),
+    instructions: 'Track page views on your site.'|t('insights'),
+    name: 'trackPageviews',
+    on: settings.trackPageviews,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Track Country'|t('insights'),
+    instructions: 'Track visitor country using GeoIP lookup. Only the country code is stored, never the IP address.'|t('insights'),
+    name: 'trackCountry',
+    on: settings.trackCountry,
+}) }}
+
+<hr>
+
+{# ========== PRIVACY & EXCLUSIONS ========== #}
+<h2>{{ 'Privacy & Exclusions'|t('insights') }}</h2>
+
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Respect Do Not Track'|t('insights') }}</label>
+    </div>
+    <div class="instructions">
+        <p>{{ 'Honor the browser\'s Do Not Track (DNT) setting.'|t('insights') }}</p>
+    </div>
+    <div class="input ltr">
+        {{ forms.lightswitch({
+            name: 'respectDoNotTrack',
+            on: settings.respectDoNotTrack,
+        }) }}
+    </div>
+    {% if not settings.respectDoNotTrack %}
+    <p class="warning" style="margin-top: 8px;">
+        {{ 'Disabling this setting may violate GDPR/DSGVO requirements. Users who have enabled Do Not Track in their browser expect their preference to be respected.'|t('insights') }}
+    </p>
+    {% endif %}
+</div>
+
+{{ forms.lightswitchField({
+    label: 'Exclude Logged-in Users'|t('insights'),
+    instructions: 'Don\'t track any logged-in users.'|t('insights'),
+    name: 'excludeLoggedInUsers',
+    on: settings.excludeLoggedInUsers,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Exclude Admins'|t('insights'),
+    instructions: 'Don\'t track admin users (recommended).'|t('insights'),
+    name: 'excludeAdmins',
+    on: settings.excludeAdmins,
+}) }}
+
+{{ forms.editableTableField({
+    label: 'Excluded Paths'|t('insights'),
+    instructions: 'URL paths that should not be tracked.'|t('insights'),
+    name: 'excludedPaths',
+    id: 'excludedPaths',
+    cols: {
+        path: {
+            heading: 'Path'|t('insights'),
+            type: 'singleline',
+            placeholder: '/admin',
+        }
+    },
+    rows: settings.excludedPaths|map(p => { path: p }),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+}) }}
+
+{{ forms.editableTableField({
+    label: 'Excluded IP Ranges'|t('insights'),
+    instructions: 'IP addresses or CIDR ranges that should not be tracked.'|t('insights'),
+    name: 'excludedIpRanges',
+    id: 'excludedIpRanges',
+    cols: {
+        ip: {
+            heading: 'IP / CIDR'|t('insights'),
+            type: 'singleline',
+            placeholder: '192.168.1.0/24',
+        }
+    },
+    rows: settings.excludedIpRanges|map(ip => { ip: ip }),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+}) }}
+
+<hr>
+
+{# ========== DATA RETENTION ========== #}
+<h2>{{ 'Data Retention'|t('insights') }}</h2>
+
+{{ forms.textField({
+    label: 'Retention Period (Days)'|t('insights'),
+    instructions: 'How many days to keep tracking data. Older data will be automatically deleted. GDPR recommends keeping data only as long as necessary.'|t('insights'),
+    name: 'dataRetentionDays',
+    value: settings.dataRetentionDays,
+    type: 'number',
+    min: 1,
+    max: 730,
+    size: 5,
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Auto Cleanup'|t('insights'),
+    instructions: 'Automatically delete old data based on retention period.'|t('insights'),
+    name: 'autoCleanup',
+    on: settings.autoCleanup,
+}) }}
+
+{% set storageStats = craft.insights.getStorageStats() %}
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Current Storage'|t('insights') }}</label>
+    </div>
+    <div class="input ltr" style="padding: 10px; background: var(--gray-050); border-radius: 4px;">
+        <table style="width: 100%; font-size: 13px;">
+            <tr><td>{{ 'Pageviews'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.pageviews|number_format }}</td></tr>
+            <tr><td>{{ 'Referrers'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.referrers|number_format }}</td></tr>
+            <tr><td>{{ 'Campaigns'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.campaigns|number_format }}</td></tr>
+            <tr><td>{{ 'Devices'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.devices|number_format }}</td></tr>
+            <tr><td>{{ 'Countries'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.countries|number_format }}</td></tr>
+            {% if storageStats.oldestDate %}
+            <tr><td colspan="2" style="padding-top: 8px; border-top: 1px solid var(--gray-200);">{{ 'Date range'|t('insights') }}: {{ storageStats.oldestDate }} – {{ storageStats.newestDate }}</td></tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<hr>
+
+{# ========== GEOIP DATABASE ========== #}
+<h2>{{ 'GeoIP Database'|t('insights') }}</h2>
+
+{{ forms.textField({
+    label: 'Database Path'|t('insights'),
+    instructions: 'Path to the MaxMind GeoLite2-Country database file.'|t('insights'),
+    name: 'geoIpDatabasePath',
+    value: settings.geoIpDatabasePath,
+    placeholder: '@storage/geoip/GeoLite2-Country.mmdb',
+}) }}
+
+{% set geoipInfo = craft.insights.getGeoIpDatabaseInfo() %}
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Database Status'|t('insights') }}</label>
+    </div>
+    {% if geoipInfo.exists %}
+    <div class="input ltr" style="padding: 10px; background: #d1fae5; border-radius: 4px; color: #065f46;">
+        {{ 'Database found'|t('insights') }} ({{ (geoipInfo.size / 1024 / 1024)|round(1) }} MB, {{ geoipInfo.modified }})
+    </div>
+    {% else %}
+    <div class="input ltr" style="padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e;">
+        {{ 'Database not found. Country tracking disabled.'|t('insights') }}<br>
+        <a href="https://dev.maxmind.com/geoip/geoip2/geolite2/" target="_blank" rel="noopener">{{ 'Download GeoLite2-Country'|t('insights') }}</a>
+    </div>
+    {% endif %}
+</div>
+
+<hr>
+
+{# ========== PERFORMANCE ========== #}
+<h2>{{ 'Performance'|t('insights') }}</h2>
+
+{{ forms.lightswitchField({
+    label: 'Use Queue'|t('insights'),
+    instructions: 'Process tracking data via the queue for better page load performance.'|t('insights'),
+    name: 'useQueue',
+    on: settings.useQueue,
+}) }}
+
+{{ forms.textField({
+    label: 'Realtime TTL (Seconds)'|t('insights'),
+    instructions: 'How long visitors are considered "active" in the realtime view.'|t('insights'),
+    name: 'realtimeTtl',
+    value: settings.realtimeTtl,
+    type: 'number',
+    min: 60,
+    max: 900,
+    size: 5,
+}) }}
+
+<hr>
+
+{# ========== DASHBOARD ========== #}
+<h2>{{ 'Dashboard'|t('insights') }}</h2>
+
+{{ forms.selectField({
+    label: 'Default Date Range'|t('insights'),
+    instructions: 'Default date range when opening the dashboard.'|t('insights'),
+    name: 'defaultDateRange',
+    value: settings.defaultDateRange,
+    options: [
+        { label: 'Today'|t('insights'), value: 'today' },
+        { label: 'Last 7 Days'|t('insights'), value: '7d' },
+        { label: 'Last 30 Days'|t('insights'), value: '30d' },
+        { label: 'Last 90 Days'|t('insights'), value: '90d' },
+        { label: 'Last 12 Months'|t('insights'), value: '12m' },
+    ],
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Show Realtime Widget'|t('insights'),
+    instructions: 'Show the realtime visitors section on the dashboard.'|t('insights'),
+    name: 'showRealtimeWidget',
+    on: settings.showRealtimeWidget,
+}) }}
+
+<hr>
+
+{# ========== DEVELOPER ========== #}
+<h2>{{ 'Developer'|t('insights') }}</h2>
+
+{{ forms.selectField({
+    label: 'Log Level'|t('insights'),
+    instructions: 'Control the verbosity of logging.'|t('insights'),
+    name: 'logLevel',
+    value: settings.logLevel,
+    options: [
+        { label: 'Default (Errors & Warnings)'|t('insights'), value: 'default' },
+        { label: 'Debug (All tracking steps)'|t('insights'), value: 'debug' },
+    ],
+}) }}
+
+<hr>
+
+{# ========== INSTALLATION ========== #}
+<h2>{{ 'Installation'|t('insights') }}</h2>
+
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Tracking Script'|t('insights') }}</label>
+    </div>
+    <div class="instructions">
+        <p>{{ 'Add this to your Twig templates:'|t('insights') }}</p>
+    </div>
+    <div class="input ltr">
+        <pre style="background: var(--gray-050); padding: 12px; border-radius: 4px; font-size: 13px; overflow-x: auto;">{{ '{{ craft.insights.trackingScript() }}'|e }}</pre>
+    </div>
+</div>
+
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Privacy Compliance'|t('insights') }}</label>
+    </div>
+    <div class="input ltr">
+        <span style="display: inline-flex; align-items: center; gap: 6px; background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 4px; font-size: 13px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            {{ 'GDPR/DSGVO compliant – No cookies, no fingerprinting, no PII stored'|t('insights') }}
+        </span>
+    </div>
+</div>

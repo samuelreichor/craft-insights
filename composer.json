@@ -1,0 +1,50 @@
+{
+  "name": "samuelreichor/craft-insights",
+  "description": "DSGVO konvorm tracking directly where your content lives.",
+  "type": "craft-plugin",
+  "license": "proprietary",
+  "support": {
+    "email": "samuelreichor@gmail.com",
+    "issues": "https://github.com/samuelreichor/craft-insights/issues?state=open",
+    "source": "https://github.com/samuelreichor/craft-insights",
+    "docs": "https://github.com/samuelreichor/craft-insights",
+    "rss": "https://github.com/samuelreichor/craft-insights/releases.atom"
+  },
+  "require": {
+    "php": ">=8.2",
+    "craftcms/cms": "^5.0.0",
+    "geoip2/geoip2": "^3.0",
+    "whichbrowser/parser": "^2.1"
+  },
+  "require-dev": {
+    "craftcms/ecs": "dev-main",
+    "craftcms/phpstan": "dev-main"
+  },
+  "autoload": {
+    "psr-4": {
+      "samuelreichor\\insights\\": "src/"
+    }
+  },
+  "extra": {
+    "handle": "insights",
+    "name": "Insights",
+    "developer": "Samuel Reichör",
+    "documentationUrl": "https://github.com/samuelreichor/craft-insights",
+    "class": "samuelreichor\\insights\\Insights"
+  },
+  "scripts": {
+    "check-cs": "ecs check --ansi",
+    "fix-cs": "ecs check --ansi --fix",
+    "phpstan": "phpstan --memory-limit=1G"
+  },
+  "config": {
+    "sort-packages": true,
+    "platform": {
+      "php": "8.2"
+    },
+    "allow-plugins": {
+      "yiisoft/yii2-composer": true,
+      "craftcms/plugin-installer": true
+    }
+  }
+}

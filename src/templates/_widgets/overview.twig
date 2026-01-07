@@ -1,0 +1,69 @@
+<style>
+.insights-widget {
+    padding: 8px 0;
+}
+.insights-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+.insights-widget-stat {
+    text-align: center;
+}
+.insights-widget-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+}
+.insights-widget-label {
+    font-size: 12px;
+    color: #6B7280;
+    margin-top: 4px;
+}
+.insights-widget-trend {
+    font-size: 11px;
+    margin-top: 2px;
+}
+.insights-widget-trend.positive { color: #10B981; }
+.insights-widget-trend.negative { color: #EF4444; }
+.insights-widget-link {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #E5E7EB;
+    font-size: 13px;
+}
+</style>
+
+<div class="insights-widget">
+    <div class="insights-widget-grid">
+        <div class="insights-widget-stat">
+            <div class="insights-widget-value">{{ summary.pageviews|number_format }}</div>
+            <div class="insights-widget-label">{{ 'Pageviews'|t('insights') }}</div>
+            <div class="insights-widget-trend {{ summary.pageviewsTrend >= 0 ? 'positive' : 'negative' }}">
+                {% if summary.pageviewsTrend >= 0 %}+{% endif %}{{ summary.pageviewsTrend }}%
+            </div>
+        </div>
+        <div class="insights-widget-stat">
+            <div class="insights-widget-value">{{ summary.uniqueVisitors|number_format }}</div>
+            <div class="insights-widget-label">{{ 'Visitors'|t('insights') }}</div>
+            <div class="insights-widget-trend {{ summary.visitorsTrend >= 0 ? 'positive' : 'negative' }}">
+                {% if summary.visitorsTrend >= 0 %}+{% endif %}{{ summary.visitorsTrend }}%
+            </div>
+        </div>
+        <div class="insights-widget-stat">
+            <div class="insights-widget-value">{{ summary.bounceRate }}%</div>
+            <div class="insights-widget-label">{{ 'Bounce Rate'|t('insights') }}</div>
+        </div>
+        <div class="insights-widget-stat">
+            <div class="insights-widget-value">
+                {% set minutes = (summary.avgTimeOnPage / 60)|round(0, 'floor') %}
+                {% set seconds = summary.avgTimeOnPage % 60 %}
+                {{ minutes }}:{{ '%02d'|format(seconds) }}
+            </div>
+            <div class="insights-widget-label">{{ 'Avg. Time'|t('insights') }}</div>
+        </div>
+    </div>
+    <a href="{{ cpUrl('insights') }}" class="insights-widget-link">{{ 'View full dashboard'|t('insights') }}</a>
+</div>

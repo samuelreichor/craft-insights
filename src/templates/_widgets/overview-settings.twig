@@ -1,0 +1,14 @@
+{% import '_includes/forms.twig' as forms %}
+
+{{ forms.selectField({
+    label: 'Date Range'|t('insights'),
+    id: 'range',
+    name: 'range',
+    value: widget.range,
+    options: [
+        { label: 'Today'|t('insights'), value: 'today' },
+        { label: 'Last 7 Days'|t('insights'), value: '7d' },
+        { label: 'Last 30 Days'|t('insights'), value: '30d' },
+        { label: 'Last 90 Days'|t('insights'), value: '90d' },
+    ],
+}) }}

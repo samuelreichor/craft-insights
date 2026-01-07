@@ -1,0 +1,101 @@
+{% extends '_layouts/cp' %}
+{% import '_includes/forms.twig' as forms %}
+
+{% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
+
+{% set title = 'Referrers'|t('insights') %}
+{% set selectedSubnavItem = 'referrers' %}
+
+{% block content %}
+<div class="insights-page">
+    <div class="flex" style="margin-bottom: 24px; gap: 12px; align-items: center;">
+        {% if sites|length > 1 %}
+        <div>
+            {{ forms.selectField({
+                id: 'site-select',
+                name: 'siteId',
+                options: sites|map(s => { label: s.name, value: s.id }),
+                value: selectedSiteId,
+            }) }}
+        </div>
+        {% endif %}
+        <div>
+            {{ forms.selectField({
+                id: 'range-select',
+                name: 'range',
+                options: [
+                    { label: 'Today'|t('insights'), value: 'today' },
+                    { label: 'Last 7 Days'|t('insights'), value: '7d' },
+                    { label: 'Last 30 Days'|t('insights'), value: '30d' },
+                    { label: 'Last 90 Days'|t('insights'), value: '90d' },
+                    { label: 'Last 12 Months'|t('insights'), value: '12m' },
+                ],
+                value: selectedRange,
+            }) }}
+        </div>
+        <div class="flex-grow"></div>
+        <a href="{{ actionUrl('insights/export/referrers', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
+    </div>
+
+    <div id="referrers-table"></div>
+</div>
+
+{% js %}
+(function() {
+    var siteId = {{ selectedSiteId }};
+    var range = '{{ selectedRange }}';
+
+    function getTableEndpoint() {
+        return Craft.getActionUrl('insights/dashboard/referrers-table-data', {
+            siteId: siteId,
+            range: range
+        });
+    }
+
+    var adminTable = new Craft.VueAdminTable({
+        columns: [
+            { name: 'source', title: Craft.t('insights', 'Source'), sortField: 'source' },
+            { name: 'type', title: Craft.t('insights', 'Type'), sortField: 'type' },
+            { name: 'visits', title: Craft.t('insights', 'Visits'), sortField: 'visits' }
+        ],
+        container: '#referrers-table',
+        tableDataEndpoint: getTableEndpoint(),
+        search: true,
+        searchPlaceholder: Craft.t('insights', 'Search referrers...'),
+        emptyMessage: Craft.t('insights', 'No referrer data yet'),
+        perPage: 50,
+        padded: true
+    });
+
+    // Handle filter changes
+    var siteSelect = document.getElementById('site-select');
+    var rangeSelect = document.getElementById('range-select');
+
+    function updateTable() {
+        if (siteSelect) {
+            siteId = parseInt(siteSelect.value);
+        }
+        range = rangeSelect.value;
+
+        // Update export link
+        var exportLink = document.querySelector('a[href*="insights/export"]');
+        if (exportLink) {
+            exportLink.href = Craft.getActionUrl('insights/export/referrers', {
+                siteId: siteId,
+                range: range,
+                format: 'csv'
+            });
+        }
+
+        // Update table endpoint and reload
+        adminTable.settings.tableDataEndpoint = getTableEndpoint();
+        adminTable.reload();
+    }
+
+    if (siteSelect) {
+        siteSelect.addEventListener('change', updateTable);
+    }
+    rangeSelect.addEventListener('change', updateTable);
+})();
+{% endjs %}
+{% endblock %}
