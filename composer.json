@@ -1,6 +1,6 @@
 {
   "name": "samuelreichor/craft-insights",
-  "description": "DSGVO konvorm tracking directly where your content lives.",
+  "description": "DSGVO (GDPR) compliant analytics for Craft CMS",
   "type": "craft-plugin",
   "license": "proprietary",
   "support": {

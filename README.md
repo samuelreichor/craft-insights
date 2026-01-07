@@ -1,6 +1,6 @@
 # Insights
 
-DSGVO konvorm tracking directly where your content lives.
+DSGVO (GDPR) compliant analytics for Craft CMS.
 
 ## Requirements
 
