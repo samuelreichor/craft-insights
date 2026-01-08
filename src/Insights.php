@@ -143,15 +143,15 @@ class Insights extends Plugin
             ];
         }
 
-        if ($user->can(Permission::ViewCampaigns->value)) {
-            $allowedPages['campaigns'] = [
-                'label' => Craft::t('insights', 'Campaigns'),
-                'url' => 'insights/campaigns',
-            ];
-        }
-
         // Pro-only detail pages (require Pro edition + permission)
         if ($this->isPro()) {
+            if ($user->can(Permission::ViewCampaigns->value)) {
+                $allowedPages['campaigns'] = [
+                    'label' => Craft::t('insights', 'Campaigns'),
+                    'url' => 'insights/campaigns',
+                ];
+            }
+
             if ($user->can(Permission::ViewCountries->value)) {
                 $allowedPages['countries'] = [
                     'label' => Craft::t('insights', 'Countries'),

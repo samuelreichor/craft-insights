@@ -1,8 +1,9 @@
 {
   "name": "samuelreichor/craft-insights",
-  "description": "DSGVO (GDPR) compliant analytics for Craft CMS",
+  "description": "GDPR compliant analytics for Craft CMS",
   "type": "craft-plugin",
   "license": "proprietary",
+  "version": "0.0.1",
   "support": {
     "email": "samuelreichor@gmail.com",
     "issues": "https://github.com/samuelreichor/craft-insights/issues?state=open",

@@ -49,8 +49,9 @@ class VisitorService extends Component
     /**
      * Get the daily salt.
      *
-     * The salt is regenerated every day to ensure visitor hashes
-     * cannot be correlated across days.
+     * The salt changes daily to ensure visitor hashes cannot be correlated across days.
+     * Uses deterministic generation based on Craft's security key to ensure consistency
+     * even if the cache is cleared mid-day (e.g., server restart).
      */
     public function getDailySalt(): string
     {
@@ -58,12 +59,17 @@ class VisitorService extends Component
         $cacheKey = Constants::CACHE_DAILY_SALT . $today;
 
         $salt = Craft::$app->cache->get($cacheKey);
-        if ($salt === false) {
-            $salt = bin2hex(random_bytes(32));
-            // Cache until midnight (max 24 hours)
-            $ttl = strtotime('tomorrow') - time();
-            Craft::$app->cache->set($cacheKey, $salt, $ttl);
+        if ($salt !== false) {
+            return $salt;
         }
+
+        // Generate deterministic salt based on date + Craft's security key
+        // This ensures the same salt is generated even after cache clear
+        $salt = hash('sha256', Craft::$app->security->hashData('insights_daily_salt_' . $today));
+
+        // Cache until midnight for performance
+        $ttl = strtotime('tomorrow') - time();
+        Craft::$app->cache->set($cacheKey, $salt, $ttl);
 
         return $salt;
     }

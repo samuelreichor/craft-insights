@@ -90,8 +90,8 @@ class TrackingService extends Component
             $logger->stopTimer('trackReferrer', ['domain' => $data['r']]);
         }
 
-        // Track UTM parameters
-        if (!empty($data['utm']['s'])) {
+        // Track UTM parameters (Pro feature)
+        if (Insights::getInstance()->isPro() && !empty($data['utm']['s'])) {
             $logger->startTimer('trackCampaign');
             $this->trackCampaign($data['utm'], $siteId, $date);
             $logger->stopTimer('trackCampaign', ['source' => $data['utm']['s']]);
@@ -198,27 +198,37 @@ class TrackingService extends Component
 
     /**
      * Check if this is a new visitor for this URL today.
+     *
+     * Uses atomic cache->add() to prevent race conditions where concurrent
+     * requests could both return true before either sets the key.
      */
     private function isNewVisitor(string $hash, string $url, int $siteId, string $date): bool
     {
         $key = Constants::CACHE_VISITOR . "{$siteId}_{$date}_{$hash}_" . md5($url);
 
-        if (Craft::$app->cache->exists($key)) {
-            return false;
-        }
-
-        // Cache until midnight
+        // Cache until midnight - add() is atomic and returns false if key exists
         $ttl = strtotime('tomorrow') - time();
-        Craft::$app->cache->set($key, 1, $ttl);
 
-        return true;
+        return Craft::$app->cache->add($key, 1, $ttl);
     }
 
     /**
-     * Find entry by URL.
+     * Find entry by URL with caching.
+     *
+     * Caches URL-to-entryId mappings to avoid repeated database queries
+     * for the same URL within a short time period.
      */
     private function findEntryByUrl(string $url, int $siteId): ?int
     {
+        $cacheKey = Constants::CACHE_VISITOR . "entry_{$siteId}_" . md5($url);
+
+        // Check cache first (1 hour TTL)
+        $cachedId = Craft::$app->cache->get($cacheKey);
+        if ($cachedId !== false) {
+            // Return null for cached "not found" (stored as 0)
+            return $cachedId === 0 ? null : $cachedId;
+        }
+
         // Try to find an entry matching this URL
         $entry = Entry::find()
             ->site('*')
@@ -227,7 +237,12 @@ class TrackingService extends Component
             ->status(null)
             ->one();
 
-        return $entry?->id;
+        $entryId = $entry?->id;
+
+        // Cache the result (use 0 for null to distinguish from cache miss)
+        Craft::$app->cache->set($cacheKey, $entryId ?? 0, 3600);
+
+        return $entryId;
     }
 
     /**
@@ -313,16 +328,23 @@ class TrackingService extends Component
 
     /**
      * Update realtime visitor tracking.
+     *
+     * Cleanup of old entries is throttled to run at most once every 30 seconds
+     * to prevent lock contention on high-traffic sites.
      */
     private function updateRealtime(string $hash, string $url, int $siteId): void
     {
         $settings = Insights::getInstance()->getSettings();
 
-        // Delete old entries (older than TTL)
-        $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
-        Craft::$app->db->createCommand()
-            ->delete(Constants::TABLE_REALTIME, ['<', 'lastSeen', $cutoff])
-            ->execute();
+        // Throttle cleanup to once every 60 seconds using atomic add()
+        $cleanupKey = Constants::CACHE_VISITOR . 'realtime_cleanup';
+        if (Craft::$app->cache->add($cleanupKey, 1, 60)) {
+            // We got the lock, perform cleanup
+            $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
+            Craft::$app->db->createCommand()
+                ->delete(Constants::TABLE_REALTIME, ['<', 'lastSeen', $cutoff])
+                ->execute();
+        }
 
         $now = date('Y-m-d H:i:s');
 
@@ -399,20 +421,17 @@ class TrackingService extends Component
 
     /**
      * Check if this is a new visitor for this event today.
+     *
+     * Uses atomic cache->add() to prevent race conditions.
      */
     private function isNewEventVisitor(string $hash, string $eventName, int $siteId, string $date): bool
     {
         $key = Constants::CACHE_VISITOR . "ev_{$siteId}_{$date}_{$hash}_" . md5($eventName);
 
-        if (Craft::$app->cache->exists($key)) {
-            return false;
-        }
-
-        // Cache until midnight
+        // Cache until midnight - add() is atomic and returns false if key exists
         $ttl = strtotime('tomorrow') - time();
-        Craft::$app->cache->set($key, 1, $ttl);
 
-        return true;
+        return Craft::$app->cache->add($key, 1, $ttl);
     }
 
     /**
@@ -497,20 +516,17 @@ class TrackingService extends Component
 
     /**
      * Check if this is a new visitor for this outbound link today.
+     *
+     * Uses atomic cache->add() to prevent race conditions.
      */
     private function isNewOutboundVisitor(string $hash, string $targetUrl, int $siteId, string $date): bool
     {
         $key = Constants::CACHE_VISITOR . "ob_{$siteId}_{$date}_{$hash}_" . md5($targetUrl);
 
-        if (Craft::$app->cache->exists($key)) {
-            return false;
-        }
-
-        // Cache until midnight
+        // Cache until midnight - add() is atomic and returns false if key exists
         $ttl = strtotime('tomorrow') - time();
-        Craft::$app->cache->set($key, 1, $ttl);
 
-        return true;
+        return Craft::$app->cache->add($key, 1, $ttl);
     }
 
     /**
@@ -582,19 +598,16 @@ class TrackingService extends Component
 
     /**
      * Check if this is a new visitor for this search term today.
+     *
+     * Uses atomic cache->add() to prevent race conditions.
      */
     private function isNewSearchVisitor(string $hash, string $searchTerm, int $siteId, string $date): bool
     {
         $key = Constants::CACHE_VISITOR . "sr_{$siteId}_{$date}_{$hash}_" . md5($searchTerm);
 
-        if (Craft::$app->cache->exists($key)) {
-            return false;
-        }
-
-        // Cache until midnight
+        // Cache until midnight - add() is atomic and returns false if key exists
         $ttl = strtotime('tomorrow') - time();
-        Craft::$app->cache->set($key, 1, $ttl);
 
-        return true;
+        return Craft::$app->cache->add($key, 1, $ttl);
     }
 }

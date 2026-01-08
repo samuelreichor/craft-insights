@@ -127,11 +127,13 @@ enum Permission: string
     {
         return [
             // Dashboard Pro
+            self::ViewDashboardCampaigns,
             self::ViewDashboardCountries,
             self::ViewDashboardEvents,
             self::ViewDashboardOutbound,
             self::ViewDashboardSearches,
             // Pages Pro
+            self::ViewCampaigns,
             self::ViewCountries,
             self::ViewEvents,
             self::ViewOutbound,

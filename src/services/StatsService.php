@@ -284,12 +284,17 @@ class StatsService extends Component
     }
 
     /**
-     * Get top campaigns.
+     * Get top campaigns (Pro feature).
      *
      * @return array<int, array{utmSource: string|null, utmMedium: string|null, utmCampaign: string|null, visits: int}>
      */
     public function getTopCampaigns(int $siteId, string $range, int $limit = 10): array
     {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
         [$startDate, $endDate] = $this->getDateRange($range);
 
         return (new Query())

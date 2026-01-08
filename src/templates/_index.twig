@@ -255,36 +255,44 @@
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Campaigns'|t('insights') }}</h2>
-                {% if currentUser.can('insights:viewCampaigns') %}
+                {% if plugin('insights').is('pro') and currentUser.can('insights:viewCampaigns') %}
                 <a href="{{ cpUrl('insights/campaigns', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
                 {% endif %}
             </div>
-            {% if topCampaigns|length %}
-            <table class="insights-table">
-                <thead>
-                    <tr>
-                        <th>{{ 'Source'|t('insights') }}</th>
-                        <th>{{ 'Medium'|t('insights') }}</th>
-                        <th>{{ 'Campaign'|t('insights') }}</th>
-                        <th class="number">{{ 'Visits'|t('insights') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for campaign in topCampaigns %}
-                    <tr>
-                        <td>{{ campaign.utmSource ?? '-' }}</td>
-                        <td>{{ campaign.utmMedium ?? '-' }}</td>
-                        <td>{{ campaign.utmCampaign ?? '-' }}</td>
-                        <td class="number">{{ campaign.visits|number_format }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% if plugin('insights').is('pro') %}
+                {% if topCampaigns|length %}
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Source'|t('insights') }}</th>
+                            <th>{{ 'Medium'|t('insights') }}</th>
+                            <th>{{ 'Campaign'|t('insights') }}</th>
+                            <th class="number">{{ 'Visits'|t('insights') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campaign in topCampaigns %}
+                        <tr>
+                            <td>{{ campaign.utmSource ?? '-' }}</td>
+                            <td>{{ campaign.utmMedium ?? '-' }}</td>
+                            <td>{{ campaign.utmCampaign ?? '-' }}</td>
+                            <td class="number">{{ campaign.visits|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No campaign data yet'|t('insights') }}</p>
+                    <p class="insights-muted">{{ 'Use UTM parameters (utm_source, utm_medium, utm_campaign) to track campaigns.'|t('insights') }}</p>
+                </div>
+                {% endif %}
             {% else %}
-            <div class="insights-empty">
-                <p>{{ 'No campaign data yet'|t('insights') }}</p>
-                <p class="insights-muted">{{ 'Use UTM parameters (utm_source, utm_medium, utm_campaign) to track campaigns.'|t('insights') }}</p>
-            </div>
+                <div class="insights-upgrade-notice">
+                    <p class="insights-upgrade-title">{{ 'Campaign tracking is a Pro feature'|t('insights') }}</p>
+                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to track UTM campaigns and measure marketing effectiveness.'|t('insights') }}</p>
+                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                </div>
             {% endif %}
         </div>
         {% endif %}

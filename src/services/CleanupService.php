@@ -18,7 +18,7 @@ class CleanupService extends Component
     /**
      * Run cleanup for all tables based on data retention settings.
      *
-     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int}
+     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int}
      */
     public function cleanup(): array
     {
@@ -40,6 +40,9 @@ class CleanupService extends Component
             'devices' => 0,
             'countries' => 0,
             'realtime' => 0,
+            'events' => 0,
+            'outbound' => 0,
+            'searches' => 0,
         ];
 
         // Clean pageviews
@@ -85,6 +88,25 @@ class CleanupService extends Component
             ->execute();
         $logger->stopTimer('cleanRealtime', ['deleted' => $results['realtime']]);
 
+        // Clean Pro tables (events, outbound, searches)
+        $logger->startTimer('cleanEvents');
+        $results['events'] = Craft::$app->db->createCommand()
+            ->delete(Constants::TABLE_EVENTS, ['<', 'date', $cutoffDate])
+            ->execute();
+        $logger->stopTimer('cleanEvents', ['deleted' => $results['events']]);
+
+        $logger->startTimer('cleanOutbound');
+        $results['outbound'] = Craft::$app->db->createCommand()
+            ->delete(Constants::TABLE_OUTBOUND, ['<', 'date', $cutoffDate])
+            ->execute();
+        $logger->stopTimer('cleanOutbound', ['deleted' => $results['outbound']]);
+
+        $logger->startTimer('cleanSearches');
+        $results['searches'] = Craft::$app->db->createCommand()
+            ->delete(Constants::TABLE_SEARCHES, ['<', 'date', $cutoffDate])
+            ->execute();
+        $logger->stopTimer('cleanSearches', ['deleted' => $results['searches']]);
+
         $total = array_sum($results);
         $logger->endFeature('Cleanup', ['totalDeleted' => $total, 'results' => $results]);
 
@@ -111,7 +133,7 @@ class CleanupService extends Component
     /**
      * Get statistics about stored data.
      *
-     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, oldestDate: string|null, newestDate: string|null}
+     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, oldestDate: string|null, newestDate: string|null}
      */
     public function getStorageStats(): array
     {
@@ -133,6 +155,15 @@ class CleanupService extends Component
                 ->count(),
             'realtime' => (int)(new Query())
                 ->from(Constants::TABLE_REALTIME)
+                ->count(),
+            'events' => (int)(new Query())
+                ->from(Constants::TABLE_EVENTS)
+                ->count(),
+            'outbound' => (int)(new Query())
+                ->from(Constants::TABLE_OUTBOUND)
+                ->count(),
+            'searches' => (int)(new Query())
+                ->from(Constants::TABLE_SEARCHES)
                 ->count(),
         ];
 

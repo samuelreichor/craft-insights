@@ -96,6 +96,9 @@ class ProcessTrackingJob extends BaseJob
                 'type' => $this->type,
                 'exception' => $e->getTraceAsString(),
             ]);
+
+            // Re-throw to let Craft's queue system handle the failure (retry/fail)
+            throw $e;
         }
     }
 

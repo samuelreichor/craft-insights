@@ -270,19 +270,33 @@
             markEngaged();
         }, { once: true });
 
-        // Track time on page when leaving
+        // Track time on page when leaving, use multiple events for reliability
+        var leaveSent = false;
+        var sendLeaveEvent = function() {
+            if (leaveSent) return;
+            leaveSent = true;
+            var timeOnPage = Math.min(Math.round((Date.now() - startTime) / 1000), 3600);
+            track('lv', { tm: timeOnPage });
+        };
+
+        // visibilitychange - fires when tab becomes hidden (most reliable for tab switches)
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'hidden') {
-                var timeOnPage = Math.min(Math.round((Date.now() - startTime) / 1000), 3600);
-                track('lv', { tm: timeOnPage });
+                sendLeaveEvent();
             }
         });
+
+        // pagehide - fires when navigating away, more reliable on mobile Safari
+        window.addEventListener('pagehide', sendLeaveEvent);
+
+        // beforeunload - fallback for older browsers and hard closes
+        window.addEventListener('beforeunload', sendLeaveEvent);
 
         // SPA support - track navigation
         if (window.history && window.history.pushState) {
             var originalPushState = history.pushState;
             history.pushState = function() {
-                // Track leave of current page
+                // Track leave of current page (bypass leaveSent for SPA navigation)
                 var timeOnPage = Math.round((Date.now() - startTime) / 1000);
                 track('lv', { tm: timeOnPage });
 
@@ -292,6 +306,7 @@
                 // Reset for new page
                 startTime = Date.now();
                 engaged = false;
+                leaveSent = false;
 
                 // Track new pageview after a short delay
                 setTimeout(function() {
