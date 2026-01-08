@@ -17,6 +17,9 @@ final class Constants
     public const TABLE_DEVICES = '{{%insights_devices}}';
     public const TABLE_COUNTRIES = '{{%insights_countries}}';
     public const TABLE_REALTIME = '{{%insights_realtime}}';
+    public const TABLE_EVENTS = '{{%insights_events}}';
+    public const TABLE_OUTBOUND = '{{%insights_outbound}}';
+    public const TABLE_SEARCHES = '{{%insights_searches}}';
 
     // Cache Key Prefixes
     public const CACHE_DAILY_SALT = 'insights_salt_';
@@ -46,6 +49,9 @@ final class Constants
             self::TABLE_DEVICES,
             self::TABLE_COUNTRIES,
             self::TABLE_REALTIME,
+            self::TABLE_EVENTS,
+            self::TABLE_OUTBOUND,
+            self::TABLE_SEARCHES,
         ];
     }
 }

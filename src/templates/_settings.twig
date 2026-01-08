@@ -13,20 +13,6 @@
     on: settings.enabled,
 }) }}
 
-{{ forms.lightswitchField({
-    label: 'Track Pageviews'|t('insights'),
-    instructions: 'Track page views on your site.'|t('insights'),
-    name: 'trackPageviews',
-    on: settings.trackPageviews,
-}) }}
-
-{{ forms.lightswitchField({
-    label: 'Track Country'|t('insights'),
-    instructions: 'Track visitor country using GeoIP lookup. Only the country code is stored, never the IP address.'|t('insights'),
-    name: 'trackCountry',
-    on: settings.trackCountry,
-}) }}
-
 <hr>
 
 {# ========== PRIVACY & EXCLUSIONS ========== #}
@@ -59,13 +45,6 @@
     on: settings.excludeLoggedInUsers,
 }) }}
 
-{{ forms.lightswitchField({
-    label: 'Exclude Admins'|t('insights'),
-    instructions: 'Don\'t track admin users (recommended).'|t('insights'),
-    name: 'excludeAdmins',
-    on: settings.excludeAdmins,
-}) }}
-
 {{ forms.editableTableField({
     label: 'Excluded Paths'|t('insights'),
     instructions: 'URL paths that should not be tracked.'|t('insights'),
@@ -84,6 +63,7 @@
     allowReorder: true,
 }) }}
 
+{% if plugin.is('pro') %}
 {{ forms.editableTableField({
     label: 'Excluded IP Ranges'|t('insights'),
     instructions: 'IP addresses or CIDR ranges that should not be tracked.'|t('insights'),
@@ -101,6 +81,7 @@
     allowDelete: true,
     allowReorder: true,
 }) }}
+{% endif %}
 
 <hr>
 
@@ -146,6 +127,7 @@
 
 <hr>
 
+{% if plugin.is('pro') %}
 {# ========== GEOIP DATABASE ========== #}
 <h2>{{ 'GeoIP Database'|t('insights') }}</h2>
 
@@ -175,6 +157,7 @@
 </div>
 
 <hr>
+{% endif %}
 
 {# ========== PERFORMANCE ========== #}
 <h2>{{ 'Performance'|t('insights') }}</h2>
@@ -200,7 +183,7 @@
 <hr>
 
 {# ========== DASHBOARD ========== #}
-<h2>{{ 'Dashboard'|t('insights') }}</h2>
+<h2>{{ 'General'|t('insights') }}</h2>
 
 {{ forms.selectField({
     label: 'Default Date Range'|t('insights'),
@@ -223,6 +206,13 @@
     on: settings.showRealtimeWidget,
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Show Entry Sidebar'|t('insights'),
+    instructions: 'Show analytics stats in the entry edit sidebar.'|t('insights'),
+    name: 'showEntrySidebar',
+    on: settings.showEntrySidebar,
+}) }}
+
 <hr>
 
 {# ========== DEVELOPER ========== #}
@@ -238,32 +228,3 @@
         { label: 'Debug (All tracking steps)'|t('insights'), value: 'debug' },
     ],
 }) }}
-
-<hr>
-
-{# ========== INSTALLATION ========== #}
-<h2>{{ 'Installation'|t('insights') }}</h2>
-
-<div class="field">
-    <div class="heading">
-        <label>{{ 'Tracking Script'|t('insights') }}</label>
-    </div>
-    <div class="instructions">
-        <p>{{ 'Add this to your Twig templates:'|t('insights') }}</p>
-    </div>
-    <div class="input ltr">
-        <pre style="background: var(--gray-050); padding: 12px; border-radius: 4px; font-size: 13px; overflow-x: auto;">{{ '{{ craft.insights.trackingScript() }}'|e }}</pre>
-    </div>
-</div>
-
-<div class="field">
-    <div class="heading">
-        <label>{{ 'Privacy Compliance'|t('insights') }}</label>
-    </div>
-    <div class="input ltr">
-        <span style="display: inline-flex; align-items: center; gap: 6px; background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 4px; font-size: 13px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            {{ 'GDPR/DSGVO compliant – No cookies, no fingerprinting, no PII stored'|t('insights') }}
-        </span>
-    </div>
-</div>

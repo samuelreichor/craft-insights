@@ -21,6 +21,9 @@ class Install extends Migration
 
     public function safeDown(): bool
     {
+        $this->dropTableIfExists(Constants::TABLE_SEARCHES);
+        $this->dropTableIfExists(Constants::TABLE_OUTBOUND);
+        $this->dropTableIfExists(Constants::TABLE_EVENTS);
         $this->dropTableIfExists(Constants::TABLE_REALTIME);
         $this->dropTableIfExists(Constants::TABLE_COUNTRIES);
         $this->dropTableIfExists(Constants::TABLE_DEVICES);
@@ -113,6 +116,55 @@ class Install extends Migration
             'currentUrl' => $this->string(500)->notNull(),
             'lastSeen' => $this->dateTime()->notNull(),
         ]);
+
+        // Custom Events (Pro feature)
+        $this->createTable(Constants::TABLE_EVENTS, [
+            'id' => $this->primaryKey(),
+            'siteId' => $this->integer()->notNull(),
+            'date' => $this->date()->notNull(),
+            'hour' => $this->tinyInteger()->unsigned(),
+            'eventName' => $this->string(100)->notNull(),
+            'eventCategory' => $this->string(50)->null(),
+            'url' => $this->string(500)->notNull(),
+            'count' => $this->integer()->unsigned()->defaultValue(0),
+            'uniqueVisitors' => $this->integer()->unsigned()->defaultValue(0),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
+        // Outbound Links (Pro feature)
+        $this->createTable(Constants::TABLE_OUTBOUND, [
+            'id' => $this->primaryKey(),
+            'siteId' => $this->integer()->notNull(),
+            'date' => $this->date()->notNull(),
+            'hour' => $this->tinyInteger()->unsigned(),
+            'targetUrl' => $this->string(500)->notNull(),
+            'targetDomain' => $this->string(255)->notNull(),
+            'linkText' => $this->string(255)->null(),
+            'sourceUrl' => $this->string(500)->notNull(),
+            'urlHash' => $this->char(32)->notNull(),
+            'clicks' => $this->integer()->unsigned()->defaultValue(0),
+            'uniqueVisitors' => $this->integer()->unsigned()->defaultValue(0),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
+        // Site Searches (Pro feature)
+        $this->createTable(Constants::TABLE_SEARCHES, [
+            'id' => $this->primaryKey(),
+            'siteId' => $this->integer()->notNull(),
+            'date' => $this->date()->notNull(),
+            'hour' => $this->tinyInteger()->unsigned(),
+            'searchTerm' => $this->string(255)->notNull(),
+            'resultsCount' => $this->integer()->unsigned()->null(),
+            'searches' => $this->integer()->unsigned()->defaultValue(0),
+            'uniqueVisitors' => $this->integer()->unsigned()->defaultValue(0),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
     }
 
     private function createIndexes(): void
@@ -141,6 +193,21 @@ class Install extends Migration
         // Realtime indexes
         $this->createIndex(null, Constants::TABLE_REALTIME, ['lastSeen']);
         $this->createIndex(null, Constants::TABLE_REALTIME, ['siteId', 'visitorHash'], true);
+
+        // Events indexes - UNIQUE index required for UPSERT
+        $this->createIndex(null, Constants::TABLE_EVENTS, ['siteId', 'date']);
+        $this->createIndex(null, Constants::TABLE_EVENTS, ['siteId', 'date', 'hour', 'eventName', 'eventCategory', 'url'], true);
+        $this->createIndex(null, Constants::TABLE_EVENTS, ['eventName']);
+
+        // Outbound indexes - UNIQUE index required for UPSERT (uses urlHash to avoid key length issues)
+        $this->createIndex(null, Constants::TABLE_OUTBOUND, ['siteId', 'date']);
+        $this->createIndex(null, Constants::TABLE_OUTBOUND, ['siteId', 'date', 'hour', 'urlHash'], true);
+        $this->createIndex(null, Constants::TABLE_OUTBOUND, ['targetDomain']);
+
+        // Searches indexes - UNIQUE index required for UPSERT
+        $this->createIndex(null, Constants::TABLE_SEARCHES, ['siteId', 'date']);
+        $this->createIndex(null, Constants::TABLE_SEARCHES, ['siteId', 'date', 'hour', 'searchTerm'], true);
+        $this->createIndex(null, Constants::TABLE_SEARCHES, ['searchTerm']);
     }
 
     private function addForeignKeys(): void
@@ -196,6 +263,30 @@ class Install extends Migration
         $this->addForeignKey(
             null,
             Constants::TABLE_REALTIME,
+            ['siteId'],
+            '{{%sites}}',
+            ['id'],
+            'CASCADE'
+        );
+        $this->addForeignKey(
+            null,
+            Constants::TABLE_EVENTS,
+            ['siteId'],
+            '{{%sites}}',
+            ['id'],
+            'CASCADE'
+        );
+        $this->addForeignKey(
+            null,
+            Constants::TABLE_OUTBOUND,
+            ['siteId'],
+            '{{%sites}}',
+            ['id'],
+            'CASCADE'
+        );
+        $this->addForeignKey(
+            null,
+            Constants::TABLE_SEARCHES,
             ['siteId'],
             '{{%sites}}',
             ['id'],

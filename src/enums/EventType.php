@@ -10,6 +10,9 @@ enum EventType: string
     case Pageview = 'pv';
     case Engagement = 'en';
     case Leave = 'lv';
+    case Event = 'ev';
+    case Outbound = 'ob';
+    case Search = 'sr';
 
     /**
      * Get human-readable label.
@@ -20,6 +23,9 @@ enum EventType: string
             self::Pageview => 'Pageview',
             self::Engagement => 'Engagement',
             self::Leave => 'Leave',
+            self::Event => 'Custom Event',
+            self::Outbound => 'Outbound Link',
+            self::Search => 'Site Search',
         };
     }
 }

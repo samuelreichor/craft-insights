@@ -6,19 +6,26 @@
 {% set title = 'Pages'|t('insights') %}
 {% set selectedSubnavItem = 'pages' %}
 
+{# Site Selection via Breadcrumbs #}
+{% set selectableSites = craft.app.sites.getEditableSites() %}
+{% set selectedSite = craft.app.sites.getSiteById(selectedSiteId) %}
+
+{% set crumbs = [] %}
+{% if craft.app.getIsMultiSite() %}
+    {% set crumbs = crumbs|merge([{
+        id: 'site-crumb',
+        icon: 'world',
+        label: selectedSite.name|t('site'),
+        menu: {
+            items: siteMenuItems(selectableSites, selectedSite),
+            label: 'Select site'|t('app')
+        },
+    }]) %}
+{% endif %}
+
 {% block content %}
 <div class="insights-page">
     <div class="flex" style="margin-bottom: 24px; gap: 12px; align-items: center;">
-        {% if sites|length > 1 %}
-        <div>
-            {{ forms.selectField({
-                id: 'site-select',
-                name: 'siteId',
-                options: sites|map(s => { label: s.name, value: s.id }),
-                value: selectedSiteId,
-            }) }}
-        </div>
-        {% endif %}
         <div>
             {{ forms.selectField({
                 id: 'range-select',
@@ -69,14 +76,10 @@
         padded: true
     });
 
-    // Handle filter changes
-    var siteSelect = document.getElementById('site-select');
+    // Handle range filter change
     var rangeSelect = document.getElementById('range-select');
 
     function updateTable() {
-        if (siteSelect) {
-            siteId = parseInt(siteSelect.value);
-        }
         range = rangeSelect.value;
 
         // Update export link
@@ -94,9 +97,6 @@
         adminTable.reload();
     }
 
-    if (siteSelect) {
-        siteSelect.addEventListener('change', updateTable);
-    }
     rangeSelect.addEventListener('change', updateTable);
 })();
 {% endjs %}

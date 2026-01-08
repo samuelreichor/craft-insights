@@ -3,8 +3,8 @@
 
 {% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
 
-{% set title = 'Referrers'|t('insights') %}
-{% set selectedSubnavItem = 'referrers' %}
+{% set title = 'Outbound Links'|t('insights') %}
+{% set selectedSubnavItem = 'outbound' %}
 
 {# Site Selection via Breadcrumbs #}
 {% set selectableSites = craft.app.sites.getEditableSites() %}
@@ -41,10 +41,10 @@
             }) }}
         </div>
         <div class="flex-grow"></div>
-        <a href="{{ actionUrl('insights/export/referrers', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
+        <a href="{{ actionUrl('insights/export/outbound', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
     </div>
 
-    <div id="referrers-table"></div>
+    <div id="outbound-table"></div>
 </div>
 
 {% js %}
@@ -53,7 +53,7 @@
     var range = '{{ selectedRange }}';
 
     function getTableEndpoint() {
-        return Craft.getActionUrl('insights/dashboard/referrers-table-data', {
+        return Craft.getActionUrl('insights/dashboard/outbound-table-data', {
             siteId: siteId,
             range: range
         });
@@ -61,15 +61,18 @@
 
     var adminTable = new Craft.VueAdminTable({
         columns: [
-            { name: 'source', title: Craft.t('insights', 'Source'), sortField: 'source' },
-            { name: 'type', title: Craft.t('insights', 'Type'), sortField: 'type' },
-            { name: 'visits', title: Craft.t('insights', 'Visits'), sortField: 'visits' }
+            { name: 'targetDomain', title: Craft.t('insights', 'Domain'), sortField: 'targetDomain' },
+            { name: 'targetUrl', title: Craft.t('insights', 'URL'), sortField: 'targetUrl' },
+            { name: 'linkText', title: Craft.t('insights', 'Link Text'), sortField: 'linkText' },
+            { name: 'sourceUrl', title: Craft.t('insights', 'Source Page'), sortField: 'sourceUrl' },
+            { name: 'clicks', title: Craft.t('insights', 'Clicks'), sortField: 'clicks' },
+            { name: 'uniqueVisitors', title: Craft.t('insights', 'Unique Visitors'), sortField: 'uniqueVisitors' }
         ],
-        container: '#referrers-table',
+        container: '#outbound-table',
         tableDataEndpoint: getTableEndpoint(),
         search: true,
-        searchPlaceholder: Craft.t('insights', 'Search referrers...'),
-        emptyMessage: Craft.t('insights', 'No referrer data yet'),
+        searchPlaceholder: Craft.t('insights', 'Search outbound links...'),
+        emptyMessage: Craft.t('insights', 'No outbound link data yet'),
         perPage: 50,
         padded: true
     });
@@ -83,7 +86,7 @@
         // Update export link
         var exportLink = document.querySelector('a[href*="insights/export"]');
         if (exportLink) {
-            exportLink.href = Craft.getActionUrl('insights/export/referrers', {
+            exportLink.href = Craft.getActionUrl('insights/export/outbound', {
                 siteId: siteId,
                 range: range,
                 format: 'csv'

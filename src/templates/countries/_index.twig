@@ -3,8 +3,8 @@
 
 {% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
 
-{% set title = 'Referrers'|t('insights') %}
-{% set selectedSubnavItem = 'referrers' %}
+{% set title = 'Countries'|t('insights') %}
+{% set selectedSubnavItem = 'countries' %}
 
 {# Site Selection via Breadcrumbs #}
 {% set selectableSites = craft.app.sites.getEditableSites() %}
@@ -41,10 +41,10 @@
             }) }}
         </div>
         <div class="flex-grow"></div>
-        <a href="{{ actionUrl('insights/export/referrers', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
+        <a href="{{ actionUrl('insights/export/countries', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
     </div>
 
-    <div id="referrers-table"></div>
+    <div id="countries-table"></div>
 </div>
 
 {% js %}
@@ -53,7 +53,7 @@
     var range = '{{ selectedRange }}';
 
     function getTableEndpoint() {
-        return Craft.getActionUrl('insights/dashboard/referrers-table-data', {
+        return Craft.getActionUrl('insights/dashboard/countries-table-data', {
             siteId: siteId,
             range: range
         });
@@ -61,15 +61,14 @@
 
     var adminTable = new Craft.VueAdminTable({
         columns: [
-            { name: 'source', title: Craft.t('insights', 'Source'), sortField: 'source' },
-            { name: 'type', title: Craft.t('insights', 'Type'), sortField: 'type' },
+            { name: 'country', title: Craft.t('insights', 'Country'), sortField: 'country' },
             { name: 'visits', title: Craft.t('insights', 'Visits'), sortField: 'visits' }
         ],
-        container: '#referrers-table',
+        container: '#countries-table',
         tableDataEndpoint: getTableEndpoint(),
         search: true,
-        searchPlaceholder: Craft.t('insights', 'Search referrers...'),
-        emptyMessage: Craft.t('insights', 'No referrer data yet'),
+        searchPlaceholder: Craft.t('insights', 'Search countries...'),
+        emptyMessage: Craft.t('insights', 'No country data yet'),
         perPage: 50,
         padded: true
     });
@@ -83,7 +82,7 @@
         // Update export link
         var exportLink = document.querySelector('a[href*="insights/export"]');
         if (exportLink) {
-            exportLink.href = Craft.getActionUrl('insights/export/referrers', {
+            exportLink.href = Craft.getActionUrl('insights/export/countries', {
                 siteId: siteId,
                 range: range,
                 format: 'csv'

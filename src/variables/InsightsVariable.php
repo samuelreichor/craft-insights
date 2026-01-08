@@ -3,6 +3,7 @@
 namespace samuelreichor\insights\variables;
 
 use Craft;
+use craft\helpers\Json;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\web\assets\TrackingAsset;
 use Twig\Markup;
@@ -23,12 +24,20 @@ class InsightsVariable
     {
         $settings = Insights::getInstance()->getSettings();
 
-        if (!$settings->enabled || !$settings->trackPageviews) {
+        if (!$settings->enabled) {
             return new Markup('', 'UTF-8');
         }
 
-        // Register the asset bundle
         $view = Craft::$app->getView();
+
+        // Generate site-specific action URL by combining site base path with action path
+        $actionUrl = $this->getSiteActionUrl('insights/track');
+
+        // Inject config before the tracking script loads
+        $config = Json::encode(['endpoint' => $actionUrl]);
+        $view->registerJs("window.insightsConfig = {$config};", $view::POS_HEAD);
+
+        // Register the asset bundle
         $view->registerAssetBundle(TrackingAsset::class);
 
         return new Markup('', 'UTF-8');
@@ -43,7 +52,7 @@ class InsightsVariable
     {
         $settings = Insights::getInstance()->getSettings();
 
-        if (!$settings->enabled || !$settings->trackPageviews) {
+        if (!$settings->enabled) {
             return new Markup('', 'UTF-8');
         }
 
@@ -53,8 +62,13 @@ class InsightsVariable
             return new Markup('', 'UTF-8');
         }
 
+        // Generate site-specific action URL
+        $actionUrl = $this->getSiteActionUrl('insights/track');
+        $config = Json::encode(['endpoint' => $actionUrl]);
+
         $script = file_get_contents($scriptPath);
-        $html = '<script>' . $script . '</script>';
+        $html = "<script>window.insightsConfig = {$config};</script>\n";
+        $html .= '<script>' . $script . '</script>';
 
         return new Markup($html, 'UTF-8');
     }
@@ -78,6 +92,16 @@ class InsightsVariable
      */
     public function getGeoIpDatabaseInfo(): array
     {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [
+                'exists' => false,
+                'path' => null,
+                'size' => null,
+                'modified' => null,
+            ];
+        }
+
         return Insights::getInstance()->geoip->getDatabaseInfo();
     }
 
@@ -150,6 +174,45 @@ class InsightsVariable
         }
 
         return Insights::getInstance()->stats->getSummary($siteId, $range);
+    }
+
+    /**
+     * Get top events (Pro feature).
+     *
+     * Usage: {{ craft.insights.getTopEvents('30d', 10) }}
+     *
+     * @return array<int, array{eventName: string, eventCategory: string|null, count: int, uniqueVisitors: int}>
+     */
+    public function getTopEvents(string $range = '30d', int $limit = 10, ?int $siteId = null): array
+    {
+        if ($siteId === null) {
+            $siteId = Craft::$app->getSites()->getCurrentSite()->id;
+        }
+
+        return Insights::getInstance()->stats->getTopEvents($siteId, $range, $limit);
+    }
+
+    /**
+     * Generate a site-specific action URL.
+     *
+     * Combines the current site's base path with the action path
+     * so that Craft resolves the correct site context.
+     */
+    private function getSiteActionUrl(string $action): string
+    {
+        $site = Craft::$app->getSites()->getCurrentSite();
+        $baseUrl = $site->getBaseUrl();
+
+        // Parse the base URL to get the path prefix
+        $parsedUrl = parse_url($baseUrl);
+        $basePath = $parsedUrl['path'] ?? '';
+
+        // Normalize: remove duplicate slashes and trailing slash
+        $basePath = (string)preg_replace('#/+#', '/', $basePath);
+        $basePath = rtrim($basePath, '/');
+
+        // Build the action URL with the site's path prefix
+        return $basePath . '/actions/' . $action;
     }
 
     /**

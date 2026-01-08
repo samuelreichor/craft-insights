@@ -82,27 +82,39 @@ class TrackController extends Controller
             return $this->asJson(['status' => 'excluded']);
         }
 
-        // Check for excluded IP ranges
+        // Check for excluded IP ranges (Pro feature only)
         $ip = $request->getUserIP() ?? '';
-        if ($this->isExcludedIp($ip, $settings->excludedIpRanges)) {
+        if (Insights::getInstance()->isPro() && $this->isExcludedIp($ip, $settings->excludedIpRanges)) {
             $logger->debug('IP excluded', ['ip' => $ip]);
             return $this->asJson(['status' => 'excluded']);
         }
 
         // Check for logged in users
-        $user = Craft::$app->getUser()->getIdentity();
-        if ($user !== null) {
-            if ($settings->excludeAdmins && $user->admin) {
-                $logger->debug('Admin user excluded from tracking');
-                return $this->asJson(['status' => 'admin']);
-            }
-            if ($settings->excludeLoggedInUsers) {
+        if ($settings->excludeLoggedInUsers) {
+            $user = Craft::$app->getUser()->getIdentity();
+            if ($user !== null) {
                 $logger->debug('Logged-in user excluded from tracking');
                 return $this->asJson(['status' => 'logged_in']);
             }
         }
 
+        // Check for Pro-only features (event tracking and outbound link tracking)
+        $eventType = EventType::tryFrom($data['t'] ?? EventType::Pageview->value);
+        if ($eventType === EventType::Event && !Insights::getInstance()->isPro()) {
+            $logger->debug('Event tracking requires Pro edition');
+            return $this->asJson(['status' => 'pro_required']);
+        }
+        if ($eventType === EventType::Outbound && !Insights::getInstance()->isPro()) {
+            $logger->debug('Outbound link tracking requires Pro edition');
+            return $this->asJson(['status' => 'pro_required']);
+        }
+        if ($eventType === EventType::Search && !Insights::getInstance()->isPro()) {
+            $logger->debug('Search tracking requires Pro edition');
+            return $this->asJson(['status' => 'pro_required']);
+        }
+
         $siteId = Craft::$app->getSites()->getCurrentSite()->id;
+
         $userAgent = $request->getUserAgent() ?? '';
         $acceptLanguage = $request->getHeaders()->get('Accept-Language');
 
@@ -121,13 +133,15 @@ class TrackController extends Controller
             // Process synchronously for simpler setups
             $logger->debug('Processing synchronously', ['type' => $data['t'] ?? 'pv']);
             $tracking = Insights::getInstance()->tracking;
-            $eventType = EventType::tryFrom($data['t'] ?? EventType::Pageview->value);
 
             try {
                 match ($eventType) {
                     EventType::Pageview => $tracking->processPageview($data, $userAgent, $ip, $siteId, $acceptLanguage),
                     EventType::Engagement => $tracking->processEngagement($data, $siteId),
                     EventType::Leave => $tracking->processLeave($data, $siteId),
+                    EventType::Event => $tracking->processEvent($data, $userAgent, $siteId, $acceptLanguage),
+                    EventType::Outbound => $tracking->processOutbound($data, $userAgent, $siteId, $acceptLanguage),
+                    EventType::Search => $tracking->processSearch($data, $userAgent, $siteId, $acceptLanguage),
                     default => null,
                 };
                 $logger->debug('Synchronous processing completed');

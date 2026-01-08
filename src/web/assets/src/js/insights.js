@@ -118,11 +118,142 @@
     }
 
     /**
+     * Track a custom event (Pro feature)
+     *
+     * @param {string} name - Event name (e.g., 'button_click', 'download')
+     * @param {Object} options - Optional: { category: 'conversion' }
+     */
+    function trackEvent(name, options) {
+        if (!name) return;
+
+        var eventData = {
+            name: name
+        };
+
+        if (options && options.category) {
+            eventData.category = options.category;
+        }
+
+        track('ev', eventData);
+    }
+
+    /**
+     * Setup automatic event tracking for elements with data-insights-event
+     */
+    function setupAutoEventTracking() {
+        document.addEventListener('click', function(e) {
+            var target = e.target;
+
+            // Walk up the DOM to find element with data-insights-event
+            while (target && target !== document) {
+                var eventName = target.getAttribute('data-insights-event');
+                if (eventName) {
+                    var category = target.getAttribute('data-insights-category');
+                    trackEvent(eventName, category ? { category: category } : null);
+                    break;
+                }
+                target = target.parentElement;
+            }
+        });
+    }
+
+    /**
+     * Track an outbound link click (Pro feature)
+     *
+     * @param {string} url - The external URL being clicked
+     * @param {string} text - The link text (optional)
+     */
+    function trackOutbound(url, text) {
+        if (!url) return;
+
+        var outboundData = {
+            target: url
+        };
+
+        if (text) {
+            outboundData.text = text.substring(0, 255);
+        }
+
+        track('ob', outboundData);
+    }
+
+    /**
+     * Check if a URL is external
+     */
+    function isExternalUrl(url) {
+        try {
+            var link = new URL(url, location.href);
+            return link.hostname !== location.hostname &&
+                   (link.protocol === 'http:' || link.protocol === 'https:');
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Track a site search (Pro feature)
+     *
+     * @param {string} query - The search query
+     * @param {number|null} resultsCount - Number of search results (optional)
+     */
+    function trackSearch(query, resultsCount) {
+        if (!query || typeof query !== 'string') return;
+
+        var searchTerm = query.trim();
+        if (!searchTerm) return;
+
+        var searchData = {
+            query: searchTerm
+        };
+
+        if (typeof resultsCount === 'number' && resultsCount >= 0) {
+            searchData.results = resultsCount;
+        }
+
+        track('sr', searchData);
+    }
+
+    /**
+     * Setup automatic outbound link tracking
+     */
+    function setupOutboundTracking() {
+        document.addEventListener('click', function(e) {
+            var target = e.target;
+
+            // Walk up the DOM to find an anchor element
+            while (target && target !== document) {
+                if (target.tagName === 'A' && target.href) {
+                    // Check if it's an external link
+                    if (isExternalUrl(target.href)) {
+                        // Skip if data-insights-no-track is set
+                        if (target.hasAttribute('data-insights-no-track')) {
+                            break;
+                        }
+
+                        var linkText = target.textContent || target.innerText || '';
+                        linkText = linkText.trim();
+
+                        trackOutbound(target.href, linkText);
+                    }
+                    break;
+                }
+                target = target.parentElement;
+            }
+        });
+    }
+
+    /**
      * Initialize tracking
      */
     function init() {
         // Track initial pageview
         track('pv');
+
+        // Setup automatic event tracking for data-insights-event elements
+        setupAutoEventTracking();
+
+        // Setup automatic outbound link tracking
+        setupOutboundTracking();
 
         // Track engagement on scroll (> 25% of page)
         var scrollHandler = function() {
@@ -177,9 +308,12 @@
         document.addEventListener('DOMContentLoaded', init);
     }
 
-    // Expose API for custom events (optional)
+    // Expose API for custom events
     window.insights = {
         track: track,
-        markEngaged: markEngaged
+        markEngaged: markEngaged,
+        trackEvent: trackEvent,
+        trackOutbound: trackOutbound,
+        trackSearch: trackSearch
     };
 })();

@@ -190,6 +190,11 @@ class StatsService extends Component
      */
     public function getTopCountries(int $siteId, string $range, int $limit = 10): array
     {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
         [$startDate, $endDate] = $this->getDateRange($range);
 
         return (new Query())
@@ -372,6 +377,22 @@ class StatsService extends Component
     }
 
     /**
+     * Get realtime visitor count for a specific URL.
+     */
+    public function getRealtimeCountForUrl(int $siteId, string $url): int
+    {
+        $settings = Insights::getInstance()->getSettings();
+        $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
+
+        return (int)(new Query())
+            ->from(Constants::TABLE_REALTIME)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['currentUrl' => $url])
+            ->andWhere(['>=', 'lastSeen', $cutoff])
+            ->count();
+    }
+
+    /**
      * Get hourly breakdown for today.
      *
      * @return array<int, array{hour: int, views: int, visitors: int}>
@@ -438,5 +459,189 @@ class StatsService extends Component
         $prevStart = (clone $start)->modify("-{$days} days")->format('Y-m-d');
 
         return [$prevStart, $prevEnd];
+    }
+
+    /**
+     * Get top custom events (Pro feature).
+     *
+     * @return array<int, array{eventName: string, eventCategory: string|null, count: int, uniqueVisitors: int}>
+     */
+    public function getTopEvents(int $siteId, string $range, int $limit = 10): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'eventName',
+                'eventCategory',
+                'SUM([[count]]) as count',
+                'SUM([[uniqueVisitors]]) as uniqueVisitors',
+            ])
+            ->from(Constants::TABLE_EVENTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['eventName', 'eventCategory'])
+            ->orderBy(['count' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get all events with URL breakdown (Pro feature).
+     *
+     * @return array<int, array{eventName: string, eventCategory: string|null, url: string, count: int, uniqueVisitors: int}>
+     */
+    public function getAllEvents(int $siteId, string $range): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'eventName',
+                'eventCategory',
+                'url',
+                'SUM([[count]]) as count',
+                'SUM([[uniqueVisitors]]) as uniqueVisitors',
+            ])
+            ->from(Constants::TABLE_EVENTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['eventName', 'eventCategory', 'url'])
+            ->orderBy(['count' => SORT_DESC])
+            ->all();
+    }
+
+    /**
+     * Get top outbound links by clicks (Pro feature).
+     *
+     * @return array<int, array{targetDomain: string, clicks: int, uniqueVisitors: int}>
+     */
+    public function getTopOutboundLinks(int $siteId, string $range, int $limit = 10): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'targetDomain',
+                'SUM([[clicks]]) as clicks',
+                'SUM([[uniqueVisitors]]) as uniqueVisitors',
+            ])
+            ->from(Constants::TABLE_OUTBOUND)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['targetDomain'])
+            ->orderBy(['clicks' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get all outbound links with full details (Pro feature).
+     *
+     * @return array<int, array{targetUrl: string, targetDomain: string, linkText: string|null, sourceUrl: string, clicks: int, uniqueVisitors: int}>
+     */
+    public function getAllOutboundLinks(int $siteId, string $range): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'targetUrl',
+                'targetDomain',
+                'linkText',
+                'sourceUrl',
+                'SUM([[clicks]]) as clicks',
+                'SUM([[uniqueVisitors]]) as uniqueVisitors',
+            ])
+            ->from(Constants::TABLE_OUTBOUND)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['targetUrl', 'targetDomain', 'linkText', 'sourceUrl'])
+            ->orderBy(['clicks' => SORT_DESC])
+            ->all();
+    }
+
+    /**
+     * Get top site searches by search count (Pro feature).
+     *
+     * @return array<int, array{searchTerm: string, searches: int, uniqueVisitors: int}>
+     */
+    public function getTopSearches(int $siteId, string $range, int $limit = 10): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'searchTerm',
+                'SUM([[searches]]) as searches',
+                'SUM([[uniqueVisitors]]) as uniqueVisitors',
+            ])
+            ->from(Constants::TABLE_SEARCHES)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['searchTerm'])
+            ->orderBy(['searches' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get all site searches with full details (Pro feature).
+     *
+     * @return array<int, array{searchTerm: string, resultsCount: int|null, searches: int, uniqueVisitors: int}>
+     */
+    public function getAllSearches(int $siteId, string $range): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'searchTerm',
+                'resultsCount',
+                'SUM([[searches]]) as searches',
+                'SUM([[uniqueVisitors]]) as uniqueVisitors',
+            ])
+            ->from(Constants::TABLE_SEARCHES)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['searchTerm', 'resultsCount'])
+            ->orderBy(['searches' => SORT_DESC])
+            ->all();
     }
 }

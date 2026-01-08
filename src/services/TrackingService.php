@@ -337,4 +337,264 @@ class TrackingService extends Component
             'lastSeen' => $now,
         ]);
     }
+
+    /**
+     * Process a custom event (Pro feature).
+     *
+     * @param array<string, mixed> $data Tracking data from frontend
+     * @param string $userAgent User agent string
+     * @param int $siteId Site ID
+     * @param string|null $acceptLanguage Accept-Language header
+     */
+    public function processEvent(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return;
+        }
+
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('CustomEvent', ['siteId' => $siteId]);
+
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
+        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $eventName = substr($data['name'] ?? 'unknown', 0, 100);
+        $eventCategory = !empty($data['category']) ? substr($data['category'], 0, 50) : null;
+        $screenCategory = $data['sc'] ?? ScreenCategory::Medium->value;
+
+        $logger->step('CustomEvent', 'Event parsed', [
+            'name' => $eventName,
+            'category' => $eventCategory,
+            'url' => $url,
+        ]);
+
+        // Generate visitor hash for unique counting
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+
+        // Check if this is a new visitor for this event today
+        $isNew = $this->isNewEventVisitor($visitorHash, $eventName, $siteId, $date);
+
+        // Aggregate event (UPSERT)
+        $logger->startTimer('upsertEvent');
+        Db::upsert(Constants::TABLE_EVENTS, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'hour' => $hour,
+            'eventName' => $eventName,
+            'eventCategory' => $eventCategory,
+            'url' => $url,
+            'count' => 1,
+            'uniqueVisitors' => $isNew ? 1 : 0,
+        ], [
+            'count' => new Expression('[[count]] + 1'),
+            'uniqueVisitors' => $isNew
+                ? new Expression('[[uniqueVisitors]] + 1')
+                : new Expression('[[uniqueVisitors]]'),
+        ]);
+        $logger->stopTimer('upsertEvent');
+
+        $logger->endFeature('CustomEvent', ['name' => $eventName, 'isNew' => $isNew]);
+    }
+
+    /**
+     * Check if this is a new visitor for this event today.
+     */
+    private function isNewEventVisitor(string $hash, string $eventName, int $siteId, string $date): bool
+    {
+        $key = Constants::CACHE_VISITOR . "ev_{$siteId}_{$date}_{$hash}_" . md5($eventName);
+
+        if (Craft::$app->cache->exists($key)) {
+            return false;
+        }
+
+        // Cache until midnight
+        $ttl = strtotime('tomorrow') - time();
+        Craft::$app->cache->set($key, 1, $ttl);
+
+        return true;
+    }
+
+    /**
+     * Process an outbound link click (Pro feature).
+     *
+     * @param array<string, mixed> $data Tracking data from frontend
+     * @param string $userAgent User agent string
+     * @param int $siteId Site ID
+     * @param string|null $acceptLanguage Accept-Language header
+     */
+    public function processOutbound(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return;
+        }
+
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('OutboundLink', ['siteId' => $siteId]);
+
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
+        $sourceUrl = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $targetUrl = substr($data['target'] ?? '', 0, 500);
+        $targetDomain = $this->extractDomain($targetUrl);
+        $linkText = !empty($data['text']) ? substr($data['text'], 0, 255) : null;
+        $screenCategory = $data['sc'] ?? ScreenCategory::Medium->value;
+
+        if (empty($targetUrl) || empty($targetDomain)) {
+            $logger->warning('Invalid outbound link data', ['target' => $targetUrl]);
+            return;
+        }
+
+        $logger->step('OutboundLink', 'Link parsed', [
+            'targetUrl' => $targetUrl,
+            'targetDomain' => $targetDomain,
+            'sourceUrl' => $sourceUrl,
+        ]);
+
+        // Generate visitor hash for unique counting
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+
+        // Check if this is a new visitor for this outbound link today
+        $isNew = $this->isNewOutboundVisitor($visitorHash, $targetUrl, $siteId, $date);
+
+        // Generate URL hash for unique constraint (to avoid MySQL key length limits)
+        $urlHash = md5($targetUrl . $sourceUrl);
+
+        // Aggregate outbound click (UPSERT)
+        $logger->startTimer('upsertOutbound');
+        Db::upsert(Constants::TABLE_OUTBOUND, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'hour' => $hour,
+            'targetUrl' => $targetUrl,
+            'targetDomain' => $targetDomain,
+            'linkText' => $linkText,
+            'sourceUrl' => $sourceUrl,
+            'urlHash' => $urlHash,
+            'clicks' => 1,
+            'uniqueVisitors' => $isNew ? 1 : 0,
+        ], [
+            'clicks' => new Expression('[[clicks]] + 1'),
+            'uniqueVisitors' => $isNew
+                ? new Expression('[[uniqueVisitors]] + 1')
+                : new Expression('[[uniqueVisitors]]'),
+            'linkText' => $linkText,
+        ]);
+        $logger->stopTimer('upsertOutbound');
+
+        $logger->endFeature('OutboundLink', ['targetDomain' => $targetDomain, 'isNew' => $isNew]);
+    }
+
+    /**
+     * Extract domain from URL.
+     */
+    private function extractDomain(string $url): string
+    {
+        $parsed = parse_url($url);
+        return $parsed['host'] ?? '';
+    }
+
+    /**
+     * Check if this is a new visitor for this outbound link today.
+     */
+    private function isNewOutboundVisitor(string $hash, string $targetUrl, int $siteId, string $date): bool
+    {
+        $key = Constants::CACHE_VISITOR . "ob_{$siteId}_{$date}_{$hash}_" . md5($targetUrl);
+
+        if (Craft::$app->cache->exists($key)) {
+            return false;
+        }
+
+        // Cache until midnight
+        $ttl = strtotime('tomorrow') - time();
+        Craft::$app->cache->set($key, 1, $ttl);
+
+        return true;
+    }
+
+    /**
+     * Process a site search (Pro feature).
+     *
+     * @param array<string, mixed> $data Tracking data from frontend
+     * @param string $userAgent User agent string
+     * @param int $siteId Site ID
+     * @param string|null $acceptLanguage Accept-Language header
+     */
+    public function processSearch(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return;
+        }
+
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('SiteSearch', ['siteId' => $siteId]);
+
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
+        $searchTerm = trim($data['query'] ?? '');
+        $resultsCount = isset($data['results']) ? (int)$data['results'] : null;
+        $screenCategory = $data['sc'] ?? ScreenCategory::Medium->value;
+
+        // Validate search term
+        if (empty($searchTerm)) {
+            $logger->warning('Empty search term');
+            return;
+        }
+
+        // Normalize and limit search term length
+        $searchTerm = mb_strtolower($searchTerm);
+        $searchTerm = substr($searchTerm, 0, 255);
+
+        $logger->step('SiteSearch', 'Search parsed', [
+            'searchTerm' => $searchTerm,
+            'resultsCount' => $resultsCount,
+        ]);
+
+        // Generate visitor hash for unique counting
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+
+        // Check if this is a new visitor for this search term today
+        $isNew = $this->isNewSearchVisitor($visitorHash, $searchTerm, $siteId, $date);
+
+        // Aggregate search (UPSERT)
+        $logger->startTimer('upsertSearch');
+        Db::upsert(Constants::TABLE_SEARCHES, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'hour' => $hour,
+            'searchTerm' => $searchTerm,
+            'resultsCount' => $resultsCount,
+            'searches' => 1,
+            'uniqueVisitors' => $isNew ? 1 : 0,
+        ], [
+            'searches' => new Expression('[[searches]] + 1'),
+            'uniqueVisitors' => $isNew
+                ? new Expression('[[uniqueVisitors]] + 1')
+                : new Expression('[[uniqueVisitors]]'),
+            'resultsCount' => $resultsCount,
+        ]);
+        $logger->stopTimer('upsertSearch');
+
+        $logger->endFeature('SiteSearch', ['searchTerm' => $searchTerm, 'isNew' => $isNew]);
+    }
+
+    /**
+     * Check if this is a new visitor for this search term today.
+     */
+    private function isNewSearchVisitor(string $hash, string $searchTerm, int $siteId, string $date): bool
+    {
+        $key = Constants::CACHE_VISITOR . "sr_{$siteId}_{$date}_{$hash}_" . md5($searchTerm);
+
+        if (Craft::$app->cache->exists($key)) {
+            return false;
+        }
+
+        // Cache until midnight
+        $ttl = strtotime('tomorrow') - time();
+        Craft::$app->cache->set($key, 1, $ttl);
+
+        return true;
+    }
 }

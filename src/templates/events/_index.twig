@@ -3,8 +3,8 @@
 
 {% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
 
-{% set title = 'Referrers'|t('insights') %}
-{% set selectedSubnavItem = 'referrers' %}
+{% set title = 'Events'|t('insights') %}
+{% set selectedSubnavItem = 'events' %}
 
 {# Site Selection via Breadcrumbs #}
 {% set selectableSites = craft.app.sites.getEditableSites() %}
@@ -41,10 +41,10 @@
             }) }}
         </div>
         <div class="flex-grow"></div>
-        <a href="{{ actionUrl('insights/export/referrers', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
+        <a href="{{ actionUrl('insights/export/events', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
     </div>
 
-    <div id="referrers-table"></div>
+    <div id="events-table"></div>
 </div>
 
 {% js %}
@@ -53,7 +53,7 @@
     var range = '{{ selectedRange }}';
 
     function getTableEndpoint() {
-        return Craft.getActionUrl('insights/dashboard/referrers-table-data', {
+        return Craft.getActionUrl('insights/dashboard/events-table-data', {
             siteId: siteId,
             range: range
         });
@@ -61,15 +61,17 @@
 
     var adminTable = new Craft.VueAdminTable({
         columns: [
-            { name: 'source', title: Craft.t('insights', 'Source'), sortField: 'source' },
-            { name: 'type', title: Craft.t('insights', 'Type'), sortField: 'type' },
-            { name: 'visits', title: Craft.t('insights', 'Visits'), sortField: 'visits' }
+            { name: 'eventName', title: Craft.t('insights', 'Event'), sortField: 'eventName' },
+            { name: 'eventCategory', title: Craft.t('insights', 'Category'), sortField: 'eventCategory' },
+            { name: 'url', title: Craft.t('insights', 'URL'), sortField: 'url' },
+            { name: 'count', title: Craft.t('insights', 'Count'), sortField: 'count' },
+            { name: 'uniqueVisitors', title: Craft.t('insights', 'Unique Visitors'), sortField: 'uniqueVisitors' }
         ],
-        container: '#referrers-table',
+        container: '#events-table',
         tableDataEndpoint: getTableEndpoint(),
         search: true,
-        searchPlaceholder: Craft.t('insights', 'Search referrers...'),
-        emptyMessage: Craft.t('insights', 'No referrer data yet'),
+        searchPlaceholder: Craft.t('insights', 'Search events...'),
+        emptyMessage: Craft.t('insights', 'No event data yet'),
         perPage: 50,
         padded: true
     });
@@ -83,7 +85,7 @@
         // Update export link
         var exportLink = document.querySelector('a[href*="insights/export"]');
         if (exportLink) {
-            exportLink.href = Craft.getActionUrl('insights/export/referrers', {
+            exportLink.href = Craft.getActionUrl('insights/export/events', {
                 siteId: siteId,
                 range: range,
                 format: 'csv'

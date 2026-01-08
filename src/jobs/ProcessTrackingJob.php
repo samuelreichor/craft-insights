@@ -70,6 +70,24 @@ class ProcessTrackingJob extends BaseJob
                 ),
                 EventType::Engagement => $tracking->processEngagement($this->data, $this->siteId),
                 EventType::Leave => $tracking->processLeave($this->data, $this->siteId),
+                EventType::Event => $tracking->processEvent(
+                    $this->data,
+                    $this->userAgent,
+                    $this->siteId,
+                    $this->acceptLanguage
+                ),
+                EventType::Outbound => $tracking->processOutbound(
+                    $this->data,
+                    $this->userAgent,
+                    $this->siteId,
+                    $this->acceptLanguage
+                ),
+                EventType::Search => $tracking->processSearch(
+                    $this->data,
+                    $this->userAgent,
+                    $this->siteId,
+                    $this->acceptLanguage
+                ),
                 default => $logger->warning("Unknown tracking type: {$this->type}"),
             };
             $logger->debug('Queue job completed successfully', ['type' => $this->type]);

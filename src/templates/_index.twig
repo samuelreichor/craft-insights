@@ -6,53 +6,71 @@
 {% set title = 'Insights' %}
 {% set selectedSubnavItem = 'dashboard' %}
 
+{# Site Selection via Breadcrumbs #}
+{% set selectableSites = craft.app.sites.getEditableSites() %}
+{% set selectedSite = craft.app.sites.getSiteById(selectedSiteId) %}
+
 {% set crumbs = [] %}
+{% if craft.app.getIsMultiSite() %}
+    {% set crumbs = crumbs|merge([{
+        id: 'site-crumb',
+        icon: 'world',
+        label: selectedSite.name|t('site'),
+        menu: {
+            items: siteMenuItems(selectableSites, selectedSite),
+            label: 'Select site'|t('app')
+        },
+    }]) %}
+{% endif %}
 
 {% block content %}
 <div class="insights-dashboard">
-    {# Header with Filters #}
-    <div class="insights-header">
-        <h1>Dashboard</h1>
-        <div class="insights-filters">
-            {% if sites|length > 1 %}
-            <select id="site-select" class="text">
-                {% for site in sites %}
-                <option value="{{ site.id }}" {{ site.id == selectedSiteId ? 'selected' }}>
-                    {{ site.name }}
-                </option>
-                {% endfor %}
-            </select>
-            {% endif %}
-            <select id="range-select" class="text">
-                <option value="today" {{ selectedRange == 'today' ? 'selected' }}>{{ 'Today'|t('insights') }}</option>
-                <option value="7d" {{ selectedRange == '7d' ? 'selected' }}>{{ 'Last 7 Days'|t('insights') }}</option>
-                <option value="30d" {{ selectedRange == '30d' ? 'selected' }}>{{ 'Last 30 Days'|t('insights') }}</option>
-                <option value="90d" {{ selectedRange == '90d' ? 'selected' }}>{{ 'Last 90 Days'|t('insights') }}</option>
-                <option value="12m" {{ selectedRange == '12m' ? 'selected' }}>{{ 'Last 12 Months'|t('insights') }}</option>
-            </select>
+    <div class="flex" style="margin-bottom: 24px; gap: 12px; align-items: center;">
+        <div>
+            {{ forms.selectField({
+                id: 'range-select',
+                name: 'range',
+                options: [
+                    { label: 'Today'|t('insights'), value: 'today' },
+                    { label: 'Last 7 Days'|t('insights'), value: '7d' },
+                    { label: 'Last 30 Days'|t('insights'), value: '30d' },
+                    { label: 'Last 90 Days'|t('insights'), value: '90d' },
+                    { label: 'Last 12 Months'|t('insights'), value: '12m' },
+                ],
+                value: selectedRange,
+            }) }}
         </div>
     </div>
 
-    {# Realtime Section #}
-    {% if settings.showRealtimeWidget %}
+    {# Realtime Widget #}
+    {% if settings.showRealtimeWidget and currentUser.can('insights:viewDashboardRealtime') %}
     <div class="insights-realtime">
-        <div class="insights-realtime-indicator"></div>
-        <div>
-            <div class="insights-realtime-count" id="realtime-count">{{ realtime.count }}</div>
-            <div class="insights-realtime-label">{{ 'Active visitors right now'|t('insights') }}</div>
-        </div>
-        <div class="insights-realtime-pages" id="realtime-pages">
-            {% for page in realtime.pages|slice(0, 5) %}
-            <div class="realtime-page">
-                <span class="url">{{ page.url }}</span>
-                <span class="count">{{ page.count }}</span>
+        <div class="insights-realtime-counter">
+            <div class="insights-realtime-dot"></div>
+            <div class="insights-realtime-info">
+                <span class="insights-realtime-count" id="realtime-count">{{ realtime.count }}</span>
+                <span class="insights-realtime-label">{{ 'visitors online'|t('insights') }}</span>
             </div>
-            {% endfor %}
         </div>
+        {% if realtime.pages|length %}
+        <div class="insights-realtime-divider"></div>
+        <div class="insights-realtime-pages-section">
+            <div class="insights-realtime-pages-title">{{ 'Currently viewing'|t('insights') }}</div>
+            <ul class="insights-realtime-pages" id="realtime-pages">
+                {% for page in realtime.pages|slice(0, 6) %}
+                <li class="realtime-page">
+                    <span class="count">{{ page.count }}</span>
+                    <span class="url">{{ page.url }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
     {# KPI Cards #}
+    {% if currentUser.can('insights:viewDashboardKpis') %}
     <div class="insights-kpis">
         <div class="insights-kpi">
             <div class="insights-kpi-label">{{ 'Pageviews'|t('insights') }}</div>
@@ -93,8 +111,10 @@
             <div class="insights-kpi-trend neutral">{{ 'Single page visits'|t('insights') }}</div>
         </div>
     </div>
+    {% endif %}
 
     {# Chart #}
+    {% if currentUser.can('insights:viewDashboardChart') %}
     <div class="insights-chart-container">
         <div class="insights-chart-header">
             <h2>{{ 'Traffic Overview'|t('insights') }}</h2>
@@ -103,14 +123,18 @@
             <canvas id="insights-chart"></canvas>
         </div>
     </div>
+    {% endif %}
 
     {# Data Tables Grid #}
     <div class="insights-grid">
         {# Top Pages #}
+        {% if currentUser.can('insights:viewDashboardPages') %}
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Top Pages'|t('insights') }}</h2>
+                {% if currentUser.can('insights:viewPages') %}
                 <a href="{{ cpUrl('insights/pages', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
             </div>
             {% if topPages|length %}
             <table class="insights-table">
@@ -138,12 +162,16 @@
             </div>
             {% endif %}
         </div>
+        {% endif %}
 
         {# Top Referrers #}
+        {% if currentUser.can('insights:viewDashboardReferrers') %}
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Traffic Sources'|t('insights') }}</h2>
+                {% if currentUser.can('insights:viewReferrers') %}
                 <a href="{{ cpUrl('insights/referrers', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
             </div>
             {% if topReferrers|length %}
             <table class="insights-table">
@@ -172,40 +200,10 @@
             </div>
             {% endif %}
         </div>
-
-        {# Top Countries #}
-        <div class="insights-table-container">
-            <div class="insights-table-header">
-                <h2>{{ 'Top Countries'|t('insights') }}</h2>
-            </div>
-            {% if topCountries|length %}
-            <table class="insights-table">
-                <thead>
-                    <tr>
-                        <th>{{ 'Country'|t('insights') }}</th>
-                        <th class="number">{{ 'Visits'|t('insights') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for country in topCountries %}
-                    <tr>
-                        <td class="insights-country">
-                            <span class="insights-country-flag">{{ craft.insights.getCountryFlag(country.countryCode) }}</span>
-                            <span>{{ craft.insights.getCountryName(country.countryCode) }}</span>
-                        </td>
-                        <td class="number">{{ country.visits|number_format }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div class="insights-empty">
-                <p>{{ 'No country data yet'|t('insights') }}</p>
-            </div>
-            {% endif %}
-        </div>
+        {% endif %}
 
         {# Devices #}
+        {% if currentUser.can('insights:viewDashboardDevices') %}
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Devices & Browsers'|t('insights') }}</h2>
@@ -250,11 +248,234 @@
             </div>
             {% endif %}
         </div>
-    </div>
+        {% endif %}
 
-    {# Footer #}
-    <div class="insights-footer">
-        <span class="insights-privacy-badge">100% DSGVO-konform</span>
+        {# Top Campaigns #}
+        {% if currentUser.can('insights:viewDashboardCampaigns') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Campaigns'|t('insights') }}</h2>
+                {% if currentUser.can('insights:viewCampaigns') %}
+                <a href="{{ cpUrl('insights/campaigns', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if topCampaigns|length %}
+            <table class="insights-table">
+                <thead>
+                    <tr>
+                        <th>{{ 'Source'|t('insights') }}</th>
+                        <th>{{ 'Medium'|t('insights') }}</th>
+                        <th>{{ 'Campaign'|t('insights') }}</th>
+                        <th class="number">{{ 'Visits'|t('insights') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for campaign in topCampaigns %}
+                    <tr>
+                        <td>{{ campaign.utmSource ?? '-' }}</td>
+                        <td>{{ campaign.utmMedium ?? '-' }}</td>
+                        <td>{{ campaign.utmCampaign ?? '-' }}</td>
+                        <td class="number">{{ campaign.visits|number_format }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="insights-empty">
+                <p>{{ 'No campaign data yet'|t('insights') }}</p>
+                <p class="insights-muted">{{ 'Use UTM parameters (utm_source, utm_medium, utm_campaign) to track campaigns.'|t('insights') }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Top Countries #}
+        {% if currentUser.can('insights:viewDashboardCountries') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Top Countries'|t('insights') }}</h2>
+                {% if plugin('insights').is('pro') and currentUser.can('insights:viewCountries') %}
+                <a href="{{ cpUrl('insights/countries', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if plugin('insights').is('pro') %}
+                {% if topCountries|length %}
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Country'|t('insights') }}</th>
+                            <th class="number">{{ 'Visits'|t('insights') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for country in topCountries %}
+                        <tr>
+                            <td class="insights-country">
+                                <span class="insights-country-flag">{{ craft.insights.getCountryFlag(country.countryCode) }}</span>
+                                <span>{{ craft.insights.getCountryName(country.countryCode) }}</span>
+                            </td>
+                            <td class="number">{{ country.visits|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No country data yet'|t('insights') }}</p>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="insights-upgrade-notice">
+                    <p class="insights-upgrade-title">{{ 'Country tracking is a Pro feature'|t('insights') }}</p>
+                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to see where your visitors come from.'|t('insights') }}</p>
+                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Top Events #}
+        {% if currentUser.can('insights:viewDashboardEvents') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Top Events'|t('insights') }}</h2>
+                {% if plugin('insights').is('pro') and currentUser.can('insights:viewEvents') %}
+                <a href="{{ cpUrl('insights/events', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if plugin('insights').is('pro') %}
+                {% if topEvents|length %}
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Event'|t('insights') }}</th>
+                            <th>{{ 'Category'|t('insights') }}</th>
+                            <th class="number">{{ 'Count'|t('insights') }}</th>
+                            <th class="number">{{ 'Visitors'|t('insights') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in topEvents %}
+                        <tr>
+                            <td>{{ event.eventName }}</td>
+                            <td>
+                                {% if event.eventCategory %}
+                                    <span class="insights-badge-category">{{ event.eventCategory }}</span>
+                                {% else %}
+                                    <span class="insights-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="number">{{ event.count|number_format }}</td>
+                            <td class="number">{{ event.uniqueVisitors|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No event data yet'|t('insights') }}</p>
+                    <p class="insights-muted">{{ 'Use data-insights-event attributes or insights.trackEvent() to track custom events.'|t('insights') }}</p>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="insights-upgrade-notice">
+                    <p class="insights-upgrade-title">{{ 'Event tracking is a Pro feature'|t('insights') }}</p>
+                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to track custom events like button clicks, downloads, and conversions.'|t('insights') }}</p>
+                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Top Outbound Links #}
+        {% if currentUser.can('insights:viewDashboardOutbound') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Outbound Links'|t('insights') }}</h2>
+                {% if plugin('insights').is('pro') and currentUser.can('insights:viewOutbound') %}
+                <a href="{{ cpUrl('insights/outbound', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if plugin('insights').is('pro') %}
+                {% if topOutboundLinks|length %}
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Domain'|t('insights') }}</th>
+                            <th class="number">{{ 'Clicks'|t('insights') }}</th>
+                            <th class="number">{{ 'Visitors'|t('insights') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for link in topOutboundLinks %}
+                        <tr>
+                            <td>{{ link.targetDomain }}</td>
+                            <td class="number">{{ link.clicks|number_format }}</td>
+                            <td class="number">{{ link.uniqueVisitors|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No outbound link data yet'|t('insights') }}</p>
+                    <p class="insights-muted">{{ 'External links are tracked automatically when visitors click them.'|t('insights') }}</p>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="insights-upgrade-notice">
+                    <p class="insights-upgrade-title">{{ 'Outbound link tracking is a Pro feature'|t('insights') }}</p>
+                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to see which external links your visitors click.'|t('insights') }}</p>
+                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Site Searches #}
+        {% if currentUser.can('insights:viewDashboardSearches') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Site Searches'|t('insights') }}</h2>
+                {% if plugin('insights').is('pro') and currentUser.can('insights:viewSearches') %}
+                <a href="{{ cpUrl('insights/searches', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if plugin('insights').is('pro') %}
+                {% if topSearches|length %}
+                <table class="insights-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Search Term'|t('insights') }}</th>
+                            <th class="number">{{ 'Searches'|t('insights') }}</th>
+                            <th class="number">{{ 'Visitors'|t('insights') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for search in topSearches %}
+                        <tr>
+                            <td>{{ search.searchTerm }}</td>
+                            <td class="number">{{ search.searches|number_format }}</td>
+                            <td class="number">{{ search.uniqueVisitors|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No search data yet'|t('insights') }}</p>
+                    <p class="insights-muted">{{ 'Use insights.trackSearch() to track site searches.'|t('insights') }}</p>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="insights-upgrade-notice">
+                    <p class="insights-upgrade-title">{{ 'Site search tracking is a Pro feature'|t('insights') }}</p>
+                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to see what your visitors are searching for.'|t('insights') }}</p>
+                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 

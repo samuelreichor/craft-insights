@@ -103,7 +103,6 @@
         initRealtime: function() {
             var self = this;
             var realtimeEl = document.getElementById('realtime-count');
-            var realtimePagesEl = document.getElementById('realtime-pages');
 
             if (!realtimeEl) return;
 
@@ -111,9 +110,6 @@
             this.realtimeInterval = setInterval(function() {
                 self.fetchRealtimeData();
             }, 30000);
-
-            // Initial fetch
-            this.fetchRealtimeData();
         },
 
         /**
@@ -137,19 +133,15 @@
             .then(function(data) {
                 if (realtimeEl) {
                     realtimeEl.textContent = data.count;
-                    realtimeEl.classList.add('pulse');
-                    setTimeout(function() {
-                        realtimeEl.classList.remove('pulse');
-                    }, 300);
                 }
 
                 if (realtimePagesEl && data.pages) {
                     var html = '';
-                    data.pages.forEach(function(page) {
-                        html += '<div class="realtime-page">';
-                        html += '<span class="url">' + self.escapeHtml(page.url) + '</span>';
+                    data.pages.slice(0, 6).forEach(function(page) {
+                        html += '<li class="realtime-page">';
                         html += '<span class="count">' + page.count + '</span>';
-                        html += '</div>';
+                        html += '<span class="url">' + self.escapeHtml(page.url) + '</span>';
+                        html += '</li>';
                     });
                     realtimePagesEl.innerHTML = html;
                 }

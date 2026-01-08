@@ -5,6 +5,8 @@ namespace samuelreichor\insights;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin;
+use craft\elements\Entry;
+use craft\events\DefineHtmlEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
@@ -13,6 +15,7 @@ use craft\services\Fields;
 use craft\services\UserPermissions;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
+use samuelreichor\insights\enums\Permission;
 use samuelreichor\insights\fields\InsightsField;
 use samuelreichor\insights\models\Settings;
 use samuelreichor\insights\services\CleanupService;
@@ -47,9 +50,25 @@ use yii\log\FileTarget;
  */
 class Insights extends Plugin
 {
+    public const EDITION_LITE = 'lite';
+    public const EDITION_PRO = 'pro';
+
     public string $schemaVersion = '1.0.1';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
+
+    public static function editions(): array
+    {
+        return [
+            self::EDITION_LITE,
+            self::EDITION_PRO,
+        ];
+    }
+
+    public function isPro(): bool
+    {
+        return $this->is(self::EDITION_PRO);
+    }
 
     public static function config(): array
     {
@@ -94,33 +113,121 @@ class Insights extends Plugin
 
     public function getCpNavItem(): ?array
     {
-        $item = parent::getCpNavItem();
+        $user = Craft::$app->getUser()->getIdentity();
+        if (!$user) {
+            return null;
+        }
 
+        $allowedPages = [];
+
+        // Dashboard: visible if user has at least one dashboard permission
+        if ($this->userHasAnyDashboardPermission($user)) {
+            $allowedPages['dashboard'] = [
+                'label' => Craft::t('insights', 'Dashboard'),
+                'url' => 'insights',
+            ];
+        }
+
+        // Detail pages (non-Pro)
+        if ($user->can(Permission::ViewPages->value)) {
+            $allowedPages['pages'] = [
+                'label' => Craft::t('insights', 'Pages'),
+                'url' => 'insights/pages',
+            ];
+        }
+
+        if ($user->can(Permission::ViewReferrers->value)) {
+            $allowedPages['referrers'] = [
+                'label' => Craft::t('insights', 'Referrers'),
+                'url' => 'insights/referrers',
+            ];
+        }
+
+        if ($user->can(Permission::ViewCampaigns->value)) {
+            $allowedPages['campaigns'] = [
+                'label' => Craft::t('insights', 'Campaigns'),
+                'url' => 'insights/campaigns',
+            ];
+        }
+
+        // Pro-only detail pages (require Pro edition + permission)
+        if ($this->isPro()) {
+            if ($user->can(Permission::ViewCountries->value)) {
+                $allowedPages['countries'] = [
+                    'label' => Craft::t('insights', 'Countries'),
+                    'url' => 'insights/countries',
+                ];
+            }
+
+            if ($user->can(Permission::ViewEvents->value)) {
+                $allowedPages['events'] = [
+                    'label' => Craft::t('insights', 'Events'),
+                    'url' => 'insights/events',
+                ];
+            }
+
+            if ($user->can(Permission::ViewOutbound->value)) {
+                $allowedPages['outbound'] = [
+                    'label' => Craft::t('insights', 'Outbound Links'),
+                    'url' => 'insights/outbound',
+                ];
+            }
+
+            if ($user->can(Permission::ViewSearches->value)) {
+                $allowedPages['searches'] = [
+                    'label' => Craft::t('insights', 'Site Searches'),
+                    'url' => 'insights/searches',
+                ];
+            }
+        }
+
+        // No pages allowed → no menu
+        if (empty($allowedPages)) {
+            return null;
+        }
+
+        $item = parent::getCpNavItem();
         if ($item === null) {
             return null;
         }
 
         $item['label'] = Craft::t('insights', 'Insights');
-        $item['subnav'] = [
-            'dashboard' => [
-                'label' => Craft::t('insights', 'Dashboard'),
-                'url' => 'insights',
-            ],
-            'pages' => [
-                'label' => Craft::t('insights', 'Pages'),
-                'url' => 'insights/pages',
-            ],
-            'referrers' => [
-                'label' => Craft::t('insights', 'Referrers'),
-                'url' => 'insights/referrers',
-            ],
-            'campaigns' => [
-                'label' => Craft::t('insights', 'Campaigns'),
-                'url' => 'insights/campaigns',
-            ],
-        ];
 
+        // Only 1 page → no subnav, link directly to that page
+        if (count($allowedPages) === 1) {
+            $singlePage = reset($allowedPages);
+            $item['url'] = $singlePage['url'];
+            return $item;
+        }
+
+        // Multiple pages → normal subnav
+        $item['subnav'] = $allowedPages;
         return $item;
+    }
+
+    /**
+     * Check if user has at least one dashboard permission.
+     */
+    private function userHasAnyDashboardPermission(\craft\elements\User $user): bool
+    {
+        // Check parent permission first
+        if ($user->can(Permission::ViewDashboard->value)) {
+            return true;
+        }
+
+        // Check individual card permissions
+        foreach (Permission::dashboardPermissions() as $permission) {
+            // Skip Pro-only permissions if not Pro edition
+            if ($permission->isPro() && !$this->isPro()) {
+                continue;
+            }
+
+            if ($user->can($permission->value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function createSettingsModel(): ?Model
@@ -147,6 +254,10 @@ class Insights extends Plugin
                 $event->rules['insights/pages'] = 'insights/dashboard/pages';
                 $event->rules['insights/referrers'] = 'insights/dashboard/referrers';
                 $event->rules['insights/campaigns'] = 'insights/dashboard/campaigns';
+                $event->rules['insights/events'] = 'insights/dashboard/events';
+                $event->rules['insights/outbound'] = 'insights/dashboard/outbound';
+                $event->rules['insights/searches'] = 'insights/dashboard/searches';
+                $event->rules['insights/countries'] = 'insights/dashboard/countries';
             }
         );
 
@@ -185,25 +296,92 @@ class Insights extends Plugin
             UserPermissions::class,
             UserPermissions::EVENT_REGISTER_PERMISSIONS,
             function(RegisterUserPermissionsEvent $event) {
+                // Build nested dashboard permissions
+                $dashboardNested = [];
+                foreach (Permission::dashboardPermissions() as $permission) {
+                    $dashboardNested[$permission->value] = [
+                        'label' => Craft::t('insights', $permission->label()),
+                    ];
+                }
+
+                // Build page permissions
+                $pagePermissions = [];
+                foreach (Permission::pagePermissions() as $permission) {
+                    $pagePermissions[$permission->value] = [
+                        'label' => Craft::t('insights', $permission->label()),
+                    ];
+                }
+
                 $event->permissions[] = [
                     'heading' => Craft::t('insights', 'Insights'),
-                    'permissions' => [
-                        'insights:viewDashboard' => [
-                            'label' => Craft::t('insights', 'View Dashboard'),
+                    'permissions' => array_merge(
+                        [
+                            Permission::ViewDashboard->value => [
+                                'label' => Craft::t('insights', Permission::ViewDashboard->label()),
+                                'nested' => $dashboardNested,
+                            ],
                         ],
-                        'insights:viewDetailedStats' => [
-                            'label' => Craft::t('insights', 'View Detailed Statistics'),
-                        ],
-                        'insights:exportData' => [
-                            'label' => Craft::t('insights', 'Export Data'),
-                        ],
-                        'insights:manageSettings' => [
-                            'label' => Craft::t('insights', 'Manage Settings'),
-                        ],
-                    ],
+                        $pagePermissions,
+                        [
+                            Permission::ViewEntryStats->value => [
+                                'label' => Craft::t('insights', Permission::ViewEntryStats->label()),
+                            ],
+                        ]
+                    ),
                 ];
             }
         );
+
+        // Register entry sidebar widget
+        Event::on(
+            Entry::class,
+            Entry::EVENT_DEFINE_SIDEBAR_HTML,
+            function(DefineHtmlEvent $event) {
+                $this->handleEntrySidebar($event);
+            }
+        );
+    }
+
+    /**
+     * Handle entry sidebar HTML event.
+     */
+    private function handleEntrySidebar(DefineHtmlEvent $event): void
+    {
+        // Check if setting is enabled
+        $settings = $this->getSettings();
+        if (!$settings->showEntrySidebar) {
+            return;
+        }
+
+        // Check user permission
+        $user = Craft::$app->getUser()->getIdentity();
+        if (!$user || !$user->can(Permission::ViewEntryStats->value)) {
+            return;
+        }
+
+        /** @var Entry $entry */
+        $entry = $event->sender;
+
+        // Only show for saved entries with URLs
+        if ($entry->id === null || !$entry->uri) {
+            return;
+        }
+
+        // Get entry URL path (without domain)
+        $url = '/' . ltrim($entry->uri, '/');
+
+        // Get stats
+        $range = $settings->defaultDateRange;
+        $stats = $this->stats->getEntryStats($entry->id, $range);
+        $realtimeCount = $this->stats->getRealtimeCountForUrl($entry->siteId, $url);
+
+        // Render sidebar template
+        $event->html .= Craft::$app->getView()->renderTemplate('insights/_entry-sidebar.twig', [
+            'entry' => $entry,
+            'stats' => $stats,
+            'realtimeCount' => $realtimeCount,
+            'range' => $range,
+        ]);
     }
 
     private function registerAutoCleanup(): void

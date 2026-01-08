@@ -1,0 +1,113 @@
+{# @var entry \craft\elements\Entry #}
+{# @var stats array #}
+{# @var realtimeCount int #}
+{# @var range string #}
+
+<style>
+.insights-entry-sidebar {
+    margin-top: 14px;
+}
+.insights-entry-sidebar .meta {
+    padding: var(--spacing);
+}
+.insights-entry-realtime {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--hairline-color);
+}
+.insights-entry-realtime-dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: insights-pulse 2s ease-in-out infinite;
+}
+@keyframes insights-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.9); }
+}
+.insights-entry-realtime-text {
+    font-size: 13px;
+    color: var(--text-color);
+}
+.insights-entry-realtime-count {
+    font-weight: 600;
+}
+.insights-entry-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+.insights-entry-stat-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+    line-height: 1.2;
+}
+.insights-entry-stat-label {
+    font-size: 11px;
+    color: var(--light-text-color);
+    margin-top: 2px;
+}
+.insights-entry-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline-color);
+}
+.insights-entry-range {
+    font-size: 11px;
+    color: var(--light-text-color);
+}
+</style>
+
+<fieldset class="insights-entry-sidebar">
+    <legend class="h6">{{ 'Insights'|t('insights') }}</legend>
+    <div class="meta">
+        <div class="insights-entry-realtime">
+            <span class="insights-entry-realtime-dot"></span>
+            <span class="insights-entry-realtime-text">
+                <span class="insights-entry-realtime-count">{{ realtimeCount }}</span>
+                {{ realtimeCount == 1 ? 'visitor online'|t('insights') : 'visitors online'|t('insights') }}
+            </span>
+        </div>
+
+        <div class="insights-entry-stats">
+            <div class="insights-entry-stat">
+                <div class="insights-entry-stat-value">{{ stats.views|number_format }}</div>
+                <div class="insights-entry-stat-label">{{ 'Views'|t('insights') }}</div>
+            </div>
+            <div class="insights-entry-stat">
+                <div class="insights-entry-stat-value">{{ stats.uniqueVisitors|number_format }}</div>
+                <div class="insights-entry-stat-label">{{ 'Visitors'|t('insights') }}</div>
+            </div>
+            <div class="insights-entry-stat">
+                {% set minutes = (stats.avgTime / 60)|round(0, 'floor') %}
+                {% set seconds = stats.avgTime % 60 %}
+                <div class="insights-entry-stat-value">{{ minutes }}:{{ '%02d'|format(seconds) }}</div>
+                <div class="insights-entry-stat-label">{{ 'Avg. Time'|t('insights') }}</div>
+            </div>
+            <div class="insights-entry-stat">
+                <div class="insights-entry-stat-value">{{ stats.bounceRate }}%</div>
+                <div class="insights-entry-stat-label">{{ 'Bounce Rate'|t('insights') }}</div>
+            </div>
+        </div>
+
+        <div class="insights-entry-footer">
+            <span class="insights-entry-range">
+                {% if range == '7d' %}{{ 'Last 7 days'|t('insights') }}
+                {% elseif range == '30d' %}{{ 'Last 30 days'|t('insights') }}
+                {% elseif range == '90d' %}{{ 'Last 90 days'|t('insights') }}
+                {% elseif range == '12m' %}{{ 'Last 12 months'|t('insights') }}
+                {% else %}{{ 'Last 30 days'|t('insights') }}
+                {% endif %}
+            </span>
+            <a href="{{ cpUrl('insights') }}" class="btn small">{{ 'Dashboard'|t('insights') }}</a>
+        </div>
+    </div>
+</fieldset>

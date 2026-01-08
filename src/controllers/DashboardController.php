@@ -5,6 +5,7 @@ namespace samuelreichor\insights\controllers;
 use Craft;
 use craft\helpers\AdminTable;
 use craft\web\Controller;
+use samuelreichor\insights\enums\Permission;
 use samuelreichor\insights\Insights;
 use yii\web\Response;
 
@@ -20,15 +21,12 @@ class DashboardController extends Controller
      */
     public function actionIndex(): Response
     {
-        $this->requirePermission('insights:viewDashboard');
+        $this->requireAnyDashboardPermission();
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
 
-        $siteId = $request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id;
-        $siteId = (int)$siteId;
-
+        $siteId = $this->resolveSiteId();
         $range = $request->getQueryParam('range', $settings->defaultDateRange);
 
         $stats = Insights::getInstance()->stats;
@@ -38,13 +36,16 @@ class DashboardController extends Controller
             'chartData' => $stats->getChartData($siteId, $range),
             'topPages' => $stats->getTopPages($siteId, $range, 10),
             'topReferrers' => $stats->getTopReferrers($siteId, $range, 10),
+            'topCampaigns' => $stats->getTopCampaigns($siteId, $range, 10),
             'topCountries' => $stats->getTopCountries($siteId, $range, 10),
+            'topEvents' => $stats->getTopEvents($siteId, $range, 10),
+            'topOutboundLinks' => $stats->getTopOutboundLinks($siteId, $range, 10),
+            'topSearches' => $stats->getTopSearches($siteId, $range, 10),
             'devices' => $stats->getDeviceBreakdown($siteId, $range),
             'browsers' => $stats->getBrowserBreakdown($siteId, $range),
             'realtime' => $stats->getRealtimeVisitors($siteId),
             'selectedSiteId' => $siteId,
             'selectedRange' => $range,
-            'sites' => Craft::$app->getSites()->getAllSites(),
             'settings' => $settings,
         ]);
     }
@@ -54,19 +55,15 @@ class DashboardController extends Controller
      */
     public function actionPages(): Response
     {
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewPages->value);
 
-        $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
 
         return $this->renderTemplate('insights/pages/_index', [
             'selectedSiteId' => $siteId,
             'selectedRange' => $range,
-            'sites' => Craft::$app->getSites()->getAllSites(),
         ]);
     }
 
@@ -75,19 +72,15 @@ class DashboardController extends Controller
      */
     public function actionReferrers(): Response
     {
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewReferrers->value);
 
-        $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
 
         return $this->renderTemplate('insights/referrers/_index', [
             'selectedSiteId' => $siteId,
             'selectedRange' => $range,
-            'sites' => Craft::$app->getSites()->getAllSites(),
         ]);
     }
 
@@ -96,19 +89,78 @@ class DashboardController extends Controller
      */
     public function actionCampaigns(): Response
     {
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewCampaigns->value);
 
-        $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
 
         return $this->renderTemplate('insights/campaigns/_index', [
             'selectedSiteId' => $siteId,
             'selectedRange' => $range,
-            'sites' => Craft::$app->getSites()->getAllSites(),
+        ]);
+    }
+
+    /**
+     * Events detail view (Pro only).
+     */
+    public function actionEvents(): Response
+    {
+        $this->requirePermission(Permission::ViewEvents->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
+
+        return $this->renderTemplate('insights/events/_index', [
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
+        ]);
+    }
+
+    /**
+     * Countries detail view (Pro only).
+     */
+    public function actionCountries(): Response
+    {
+        $this->requirePermission(Permission::ViewCountries->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
+
+        return $this->renderTemplate('insights/countries/_index', [
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
+        ]);
+    }
+
+    /**
+     * Outbound links detail view (Pro only).
+     */
+    public function actionOutbound(): Response
+    {
+        $this->requirePermission(Permission::ViewOutbound->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
+
+        return $this->renderTemplate('insights/outbound/_index', [
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
         ]);
     }
 
@@ -118,7 +170,7 @@ class DashboardController extends Controller
     public function actionRealtimeData(): Response
     {
         $this->requireAcceptsJson();
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewDashboardRealtime->value);
 
         $siteId = (int)(Craft::$app->getRequest()->getQueryParam('siteId')
             ?? Craft::$app->getSites()->getCurrentSite()->id);
@@ -134,7 +186,7 @@ class DashboardController extends Controller
     public function actionChartData(): Response
     {
         $this->requireAcceptsJson();
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewDashboardChart->value);
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -154,7 +206,7 @@ class DashboardController extends Controller
     public function actionHourlyData(): Response
     {
         $this->requireAcceptsJson();
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewDashboardChart->value);
 
         $siteId = (int)(Craft::$app->getRequest()->getQueryParam('siteId')
             ?? Craft::$app->getSites()->getCurrentSite()->id);
@@ -170,7 +222,7 @@ class DashboardController extends Controller
     public function actionPagesTableData(): Response
     {
         $this->requireAcceptsJson();
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewPages->value);
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -275,7 +327,7 @@ class DashboardController extends Controller
     public function actionReferrersTableData(): Response
     {
         $this->requireAcceptsJson();
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewReferrers->value);
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -358,7 +410,7 @@ class DashboardController extends Controller
     public function actionCampaignsTableData(): Response
     {
         $this->requireAcceptsJson();
-        $this->requirePermission('insights:viewDashboard');
+        $this->requirePermission(Permission::ViewCampaigns->value);
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -439,5 +491,465 @@ class DashboardController extends Controller
             'pagination' => AdminTable::paginationLinks($page, $total, $limit),
             'data' => $tableData,
         ]);
+    }
+
+    /**
+     * Get events table data (API endpoint for Vue Admin Table).
+     */
+    public function actionEventsTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewEvents->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allEvents = $stats->getAllEvents($siteId, $range);
+
+        // Apply search filter
+        if ($search) {
+            $allEvents = array_filter($allEvents, function($event) use ($search) {
+                return stripos($event['eventName'], $search) !== false ||
+                       stripos($event['eventCategory'] ?? '', $search) !== false ||
+                       stripos($event['url'], $search) !== false;
+            });
+            $allEvents = array_values($allEvents);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allEvents, function($a, $b) use ($sortField, $sortDir) {
+                $aVal = match ($sortField) {
+                    'eventName' => strtolower($a['eventName']),
+                    'eventCategory' => strtolower($a['eventCategory'] ?? ''),
+                    'url' => strtolower($a['url']),
+                    'count' => (int)$a['count'],
+                    'uniqueVisitors' => (int)$a['uniqueVisitors'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'eventName' => strtolower($b['eventName']),
+                    'eventCategory' => strtolower($b['eventCategory'] ?? ''),
+                    'url' => strtolower($b['url']),
+                    'count' => (int)$b['count'],
+                    'uniqueVisitors' => (int)$b['uniqueVisitors'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allEvents);
+        $offset = ($page - 1) * $limit;
+        $events = array_slice($allEvents, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($events as $event) {
+            $tableData[] = [
+                'id' => md5($event['eventName'] . ($event['eventCategory'] ?? '') . $event['url']),
+                'title' => $event['eventName'],
+                'eventName' => $event['eventName'],
+                'eventCategory' => $event['eventCategory'] ?? '-',
+                'url' => $event['url'],
+                'count' => number_format((int)$event['count']),
+                'uniqueVisitors' => number_format((int)$event['uniqueVisitors']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Get countries table data (API endpoint for Vue Admin Table).
+     */
+    public function actionCountriesTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewCountries->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allCountries = $stats->getTopCountries($siteId, $range, 1000);
+
+        // Get country names for search and display
+        $variable = new \samuelreichor\insights\variables\InsightsVariable();
+
+        // Apply search filter
+        if ($search) {
+            $allCountries = array_filter($allCountries, function($country) use ($search, $variable) {
+                $countryName = $variable->getCountryName($country['countryCode']);
+                return stripos($countryName, $search) !== false ||
+                       stripos($country['countryCode'], $search) !== false;
+            });
+            $allCountries = array_values($allCountries);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allCountries, function($a, $b) use ($sortField, $sortDir, $variable) {
+                $aVal = match ($sortField) {
+                    'country' => strtolower($variable->getCountryName($a['countryCode'])),
+                    'visits' => (int)$a['visits'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'country' => strtolower($variable->getCountryName($b['countryCode'])),
+                    'visits' => (int)$b['visits'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allCountries);
+        $offset = ($page - 1) * $limit;
+        $countries = array_slice($allCountries, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($countries as $country) {
+            $flag = $variable->getCountryFlag($country['countryCode']);
+            $name = $variable->getCountryName($country['countryCode']);
+
+            $tableData[] = [
+                'id' => $country['countryCode'],
+                'title' => $name,
+                'country' => $flag . ' ' . $name,
+                'visits' => number_format((int)$country['visits']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Get outbound links table data (API endpoint for Vue Admin Table).
+     */
+    public function actionOutboundTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewOutbound->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allOutbound = $stats->getAllOutboundLinks($siteId, $range);
+
+        // Apply search filter
+        if ($search) {
+            $allOutbound = array_filter($allOutbound, function($link) use ($search) {
+                return stripos($link['targetUrl'], $search) !== false ||
+                       stripos($link['targetDomain'], $search) !== false ||
+                       stripos($link['linkText'] ?? '', $search) !== false ||
+                       stripos($link['sourceUrl'], $search) !== false;
+            });
+            $allOutbound = array_values($allOutbound);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allOutbound, function($a, $b) use ($sortField, $sortDir) {
+                $aVal = match ($sortField) {
+                    'targetDomain' => strtolower($a['targetDomain']),
+                    'targetUrl' => strtolower($a['targetUrl']),
+                    'linkText' => strtolower($a['linkText'] ?? ''),
+                    'sourceUrl' => strtolower($a['sourceUrl']),
+                    'clicks' => (int)$a['clicks'],
+                    'uniqueVisitors' => (int)$a['uniqueVisitors'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'targetDomain' => strtolower($b['targetDomain']),
+                    'targetUrl' => strtolower($b['targetUrl']),
+                    'linkText' => strtolower($b['linkText'] ?? ''),
+                    'sourceUrl' => strtolower($b['sourceUrl']),
+                    'clicks' => (int)$b['clicks'],
+                    'uniqueVisitors' => (int)$b['uniqueVisitors'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allOutbound);
+        $offset = ($page - 1) * $limit;
+        $outbound = array_slice($allOutbound, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($outbound as $link) {
+            $tableData[] = [
+                'id' => md5($link['targetUrl'] . $link['sourceUrl']),
+                'title' => $link['targetDomain'],
+                'targetDomain' => $link['targetDomain'],
+                'targetUrl' => $link['targetUrl'],
+                'linkText' => $link['linkText'] ?? '-',
+                'sourceUrl' => $link['sourceUrl'],
+                'clicks' => number_format((int)$link['clicks']),
+                'uniqueVisitors' => number_format((int)$link['uniqueVisitors']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Site searches detail view (Pro only).
+     */
+    public function actionSearches(): Response
+    {
+        $this->requirePermission(Permission::ViewSearches->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
+
+        return $this->renderTemplate('insights/searches/_index', [
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
+        ]);
+    }
+
+    /**
+     * Get searches table data (API endpoint for Vue Admin Table).
+     */
+    public function actionSearchesTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewSearches->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allSearches = $stats->getAllSearches($siteId, $range);
+
+        // Apply search filter
+        if ($search) {
+            $allSearches = array_filter($allSearches, function($searchData) use ($search) {
+                return stripos($searchData['searchTerm'], $search) !== false;
+            });
+            $allSearches = array_values($allSearches);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allSearches, function($a, $b) use ($sortField, $sortDir) {
+                $aVal = match ($sortField) {
+                    'searchTerm' => strtolower($a['searchTerm']),
+                    'resultsCount' => (int)($a['resultsCount'] ?? 0),
+                    'searches' => (int)$a['searches'],
+                    'uniqueVisitors' => (int)$a['uniqueVisitors'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'searchTerm' => strtolower($b['searchTerm']),
+                    'resultsCount' => (int)($b['resultsCount'] ?? 0),
+                    'searches' => (int)$b['searches'],
+                    'uniqueVisitors' => (int)$b['uniqueVisitors'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allSearches);
+        $offset = ($page - 1) * $limit;
+        $searches = array_slice($allSearches, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($searches as $searchData) {
+            $tableData[] = [
+                'id' => md5($searchData['searchTerm'] . ($searchData['resultsCount'] ?? '')),
+                'title' => $searchData['searchTerm'],
+                'searchTerm' => $searchData['searchTerm'],
+                'resultsCount' => $searchData['resultsCount'] !== null ? number_format((int)$searchData['resultsCount']) : '-',
+                'searches' => number_format((int)$searchData['searches']),
+                'uniqueVisitors' => number_format((int)$searchData['uniqueVisitors']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Resolve site ID from request parameters.
+     *
+     * Supports both `site` (handle) and `siteId` parameters.
+     * Falls back to current site if neither is provided.
+     */
+    private function resolveSiteId(): int
+    {
+        $request = Craft::$app->getRequest();
+
+        // Check for site handle first (native Craft pattern)
+        $siteHandle = $request->getQueryParam('site');
+        if ($siteHandle) {
+            $site = Craft::$app->getSites()->getSiteByHandle($siteHandle);
+            if ($site) {
+                return $site->id;
+            }
+        }
+
+        // Fall back to siteId parameter
+        $siteId = $request->getQueryParam('siteId');
+        if ($siteId) {
+            return (int)$siteId;
+        }
+
+        // Default to current site
+        return Craft::$app->getSites()->getCurrentSite()->id;
+    }
+
+    /**
+     * Require that the user has at least one dashboard permission.
+     *
+     * @throws \yii\web\ForbiddenHttpException
+     */
+    private function requireAnyDashboardPermission(): void
+    {
+        $user = Craft::$app->getUser()->getIdentity();
+        if (!$user) {
+            throw new \yii\web\ForbiddenHttpException('User is not logged in.');
+        }
+
+        // Check parent permission first
+        if ($user->can(Permission::ViewDashboard->value)) {
+            return;
+        }
+
+        $isPro = Insights::getInstance()->isPro();
+
+        // Check individual card permissions
+        foreach (Permission::dashboardPermissions() as $permission) {
+            // Skip Pro-only permissions if not Pro edition
+            if ($permission->isPro() && !$isPro) {
+                continue;
+            }
+
+            if ($user->can($permission->value)) {
+                return;
+            }
+        }
+
+        throw new \yii\web\ForbiddenHttpException('You do not have permission to view the dashboard.');
     }
 }

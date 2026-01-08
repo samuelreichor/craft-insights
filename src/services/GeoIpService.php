@@ -28,12 +28,12 @@ class GeoIpService extends Component
      */
     public function getCountry(string $ip): ?string
     {
-        $settings = Insights::getInstance()->getSettings();
-        $logger = Insights::getInstance()->logger;
-
-        if (!$settings->trackCountry) {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
             return null;
         }
+
+        $logger = Insights::getInstance()->logger;
 
         // Private/local IPs cannot be geolocated
         if ($this->isPrivateIp($ip)) {

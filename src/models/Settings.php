@@ -13,12 +13,10 @@ class Settings extends Model
 {
     // Tracking
     public bool $enabled = true;
-    public bool $trackPageviews = true;
 
     // Privacy (DSGVO)
     public bool $respectDoNotTrack = true;
     public bool $excludeLoggedInUsers = false;
-    public bool $excludeAdmins = true;
 
     /** @var string[] */
     public array $excludedIpRanges = [];
@@ -27,7 +25,6 @@ class Settings extends Model
     public array $excludedPaths = ['/admin', '/cpresources', '/actions'];
 
     // GeoIP
-    public bool $trackCountry = true;
     public string $geoIpDatabasePath = '@storage/geoip/GeoLite2-Country.mmdb';
 
     // Data Retention
@@ -41,6 +38,9 @@ class Settings extends Model
     // Dashboard
     public string $defaultDateRange = '30d';
     public bool $showRealtimeWidget = true;
+
+    // Entry Sidebar
+    public bool $showEntrySidebar = true;
 
     // Logging
     public string $logLevel = 'default';
@@ -92,9 +92,9 @@ class Settings extends Model
     public function rules(): array
     {
         return [
-            [['enabled', 'trackPageviews'], 'boolean'],
-            [['respectDoNotTrack', 'excludeLoggedInUsers', 'excludeAdmins'], 'boolean'],
-            [['trackCountry', 'autoCleanup', 'useQueue', 'showRealtimeWidget'], 'boolean'],
+            [['enabled'], 'boolean'],
+            [['respectDoNotTrack', 'excludeLoggedInUsers'], 'boolean'],
+            [['autoCleanup', 'useQueue', 'showRealtimeWidget', 'showEntrySidebar'], 'boolean'],
             [['dataRetentionDays'], 'integer', 'min' => 1, 'max' => 730],
             [['realtimeTtl'], 'integer', 'min' => 60, 'max' => 900],
             [['excludedPaths', 'excludedIpRanges'], 'each', 'rule' => ['string']],
