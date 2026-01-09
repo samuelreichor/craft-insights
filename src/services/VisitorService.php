@@ -21,28 +21,30 @@ class VisitorService extends Component
      *
      * This hash is DSGVO-compliant because:
      * - It changes daily (no persistent tracking)
-     * - It doesn't include IP address
-     * - It only uses general, non-identifying attributes
-     * - It cannot be reversed to identify the user
+     * - IP address is used for hashing but NEVER stored (same approach as Plausible/Fathom)
+     * - The hash cannot be reversed to identify the user
+     * - Legal basis: Legitimate interest (Art. 6(1)(f) GDPR)
      *
      * @param string $userAgent The user agent string
      * @param string $screenCategory Screen size category (s/m/l)
      * @param string|null $acceptLanguage The accept-language header
+     * @param string $ip IP address (used for hash only, never stored)
      */
-    public function generateHash(string $userAgent, string $screenCategory = 'm', ?string $acceptLanguage = null): string
+    public function generateHash(string $userAgent, string $screenCategory = 'm', ?string $acceptLanguage = null, string $ip = ''): string
     {
         $salt = $this->getDailySalt();
 
-        // Only coarse, non-identifying attributes
+        // Attributes for unique visitor identification
+        // IP is included for accuracy but never stored - only the hash is kept
         $attributes = [
             $salt,
             date('Y-m-d'), // Only valid for today
+            $ip, // Makes hash unique per visitor, discarded after hashing
             $this->getBrowserFamily($userAgent),
             $this->getPrimaryLanguage($acceptLanguage),
             $screenCategory, // small/medium/large
         ];
 
-        // IMPORTANT: No IP, no exact User-Agent!
         return hash('sha256', implode('|', $attributes));
     }
 

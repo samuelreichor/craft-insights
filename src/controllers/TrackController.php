@@ -139,9 +139,9 @@ class TrackController extends Controller
                     EventType::Pageview => $tracking->processPageview($data, $userAgent, $ip, $siteId, $acceptLanguage),
                     EventType::Engagement => $tracking->processEngagement($data, $siteId),
                     EventType::Leave => $tracking->processLeave($data, $siteId),
-                    EventType::Event => $tracking->processEvent($data, $userAgent, $siteId, $acceptLanguage),
-                    EventType::Outbound => $tracking->processOutbound($data, $userAgent, $siteId, $acceptLanguage),
-                    EventType::Search => $tracking->processSearch($data, $userAgent, $siteId, $acceptLanguage),
+                    EventType::Event => $tracking->processEvent($data, $userAgent, $ip, $siteId, $acceptLanguage),
+                    EventType::Outbound => $tracking->processOutbound($data, $userAgent, $ip, $siteId, $acceptLanguage),
+                    EventType::Search => $tracking->processSearch($data, $userAgent, $ip, $siteId, $acceptLanguage),
                     default => null,
                 };
                 $logger->debug('Synchronous processing completed');

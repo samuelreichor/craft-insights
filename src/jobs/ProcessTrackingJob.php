@@ -73,18 +73,21 @@ class ProcessTrackingJob extends BaseJob
                 EventType::Event => $tracking->processEvent(
                     $this->data,
                     $this->userAgent,
+                    $this->ip,
                     $this->siteId,
                     $this->acceptLanguage
                 ),
                 EventType::Outbound => $tracking->processOutbound(
                     $this->data,
                     $this->userAgent,
+                    $this->ip,
                     $this->siteId,
                     $this->acceptLanguage
                 ),
                 EventType::Search => $tracking->processSearch(
                     $this->data,
                     $this->userAgent,
+                    $this->ip,
                     $this->siteId,
                     $this->acceptLanguage
                 ),

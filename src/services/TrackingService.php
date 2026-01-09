@@ -47,7 +47,7 @@ class TrackingService extends Component
 
         // Generate visitor hash
         $logger->startTimer('visitorHash');
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage, $ip);
         $logger->stopTimer('visitorHash');
 
         // Find entry ID for this URL
@@ -365,10 +365,11 @@ class TrackingService extends Component
      *
      * @param array<string, mixed> $data Tracking data from frontend
      * @param string $userAgent User agent string
+     * @param string $ip IP address (used for visitor hash only, never stored)
      * @param int $siteId Site ID
      * @param string|null $acceptLanguage Accept-Language header
      */
-    public function processEvent(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    public function processEvent(array $data, string $userAgent, string $ip, int $siteId, ?string $acceptLanguage = null): void
     {
         // Pro feature only
         if (!Insights::getInstance()->isPro()) {
@@ -392,7 +393,7 @@ class TrackingService extends Component
         ]);
 
         // Generate visitor hash for unique counting
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage, $ip);
 
         // Check if this is a new visitor for this event today
         $isNew = $this->isNewEventVisitor($visitorHash, $eventName, $siteId, $date);
@@ -439,10 +440,11 @@ class TrackingService extends Component
      *
      * @param array<string, mixed> $data Tracking data from frontend
      * @param string $userAgent User agent string
+     * @param string $ip IP address (used for visitor hash only, never stored)
      * @param int $siteId Site ID
      * @param string|null $acceptLanguage Accept-Language header
      */
-    public function processOutbound(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    public function processOutbound(array $data, string $userAgent, string $ip, int $siteId, ?string $acceptLanguage = null): void
     {
         // Pro feature only
         if (!Insights::getInstance()->isPro()) {
@@ -472,7 +474,7 @@ class TrackingService extends Component
         ]);
 
         // Generate visitor hash for unique counting
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage, $ip);
 
         // Check if this is a new visitor for this outbound link today
         $isNew = $this->isNewOutboundVisitor($visitorHash, $targetUrl, $siteId, $date);
@@ -534,10 +536,11 @@ class TrackingService extends Component
      *
      * @param array<string, mixed> $data Tracking data from frontend
      * @param string $userAgent User agent string
+     * @param string $ip IP address (used for visitor hash only, never stored)
      * @param int $siteId Site ID
      * @param string|null $acceptLanguage Accept-Language header
      */
-    public function processSearch(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    public function processSearch(array $data, string $userAgent, string $ip, int $siteId, ?string $acceptLanguage = null): void
     {
         // Pro feature only
         if (!Insights::getInstance()->isPro()) {
@@ -569,7 +572,7 @@ class TrackingService extends Component
         ]);
 
         // Generate visitor hash for unique counting
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage, $ip);
 
         // Check if this is a new visitor for this search term today
         $isNew = $this->isNewSearchVisitor($visitorHash, $searchTerm, $siteId, $date);
