@@ -4,6 +4,7 @@
  * Handles the Control Panel dashboard functionality including:
  * - Chart rendering
  * - Realtime updates
+ * - Live data refresh
  * - Interactive elements
  */
 (function() {
@@ -11,9 +12,10 @@
 
     var InsightsDashboard = {
         chart: null,
-        realtimeInterval: null,
+        refreshInterval: null,
         siteId: null,
         range: null,
+        refreshRate: 15000, // 15 seconds
 
         /**
          * Initialize the dashboard
@@ -23,7 +25,7 @@
             this.range = config.range;
 
             this.initChart(config.chartData);
-            this.initRealtime();
+            this.initLiveRefresh();
             this.initFilters();
             this.initTooltips();
         },
@@ -98,29 +100,24 @@
         },
 
         /**
-         * Initialize realtime updates
+         * Initialize live refresh for all dashboard data
          */
-        initRealtime: function() {
+        initLiveRefresh: function() {
             var self = this;
-            var realtimeEl = document.getElementById('realtime-count');
 
-            if (!realtimeEl) return;
-
-            // Update every 30 seconds
-            this.realtimeInterval = setInterval(function() {
-                self.fetchRealtimeData();
-            }, 30000);
+            // Update all data periodically
+            this.refreshInterval = setInterval(function() {
+                self.fetchDashboardData();
+            }, this.refreshRate);
         },
 
         /**
-         * Fetch realtime data from server
+         * Fetch all dashboard data from server
          */
-        fetchRealtimeData: function() {
+        fetchDashboardData: function() {
             var self = this;
-            var realtimeEl = document.getElementById('realtime-count');
-            var realtimePagesEl = document.getElementById('realtime-pages');
 
-            fetch('/actions/insights/dashboard/realtime-data?siteId=' + this.siteId, {
+            fetch('/actions/insights/dashboard/dashboard-data?siteId=' + this.siteId + '&range=' + this.range, {
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
@@ -131,24 +128,310 @@
                 return response.json();
             })
             .then(function(data) {
-                if (realtimeEl) {
-                    realtimeEl.textContent = data.count;
-                }
-
-                if (realtimePagesEl && data.pages) {
-                    var html = '';
-                    data.pages.slice(0, 6).forEach(function(page) {
-                        html += '<li class="realtime-page">';
-                        html += '<span class="count">' + page.count + '</span>';
-                        html += '<span class="url">' + self.escapeHtml(page.url) + '</span>';
-                        html += '</li>';
-                    });
-                    realtimePagesEl.innerHTML = html;
-                }
+                self.updateRealtime(data.realtime);
+                self.updateKpis(data.summary);
+                self.updateChart(data.chartData);
+                self.updateTopPages(data.topPages);
+                self.updateTopReferrers(data.topReferrers);
+                self.updateDevices(data.devices, data.browsers);
+                self.updateTopCampaigns(data.topCampaigns);
+                self.updateTopCountries(data.topCountries);
+                self.updateTopEvents(data.topEvents);
+                self.updateTopOutbound(data.topOutboundLinks);
+                self.updateTopSearches(data.topSearches);
             })
             .catch(function(error) {
-                console.warn('Failed to fetch realtime data:', error);
+                console.warn('Failed to fetch dashboard data:', error);
             });
+        },
+
+        /**
+         * Update realtime widget
+         */
+        updateRealtime: function(data) {
+            if (!data) return;
+
+            var realtimeEl = document.getElementById('realtime-count');
+            var realtimePagesEl = document.getElementById('realtime-pages');
+
+            if (realtimeEl) {
+                realtimeEl.textContent = data.count;
+            }
+
+            if (realtimePagesEl && data.pages) {
+                var self = this;
+                var html = '';
+                data.pages.slice(0, 6).forEach(function(page) {
+                    html += '<li class="realtime-page">';
+                    html += '<span class="count">' + page.count + '</span>';
+                    html += '<span class="url">' + self.escapeHtml(page.url) + '</span>';
+                    html += '</li>';
+                });
+                realtimePagesEl.innerHTML = html;
+            }
+        },
+
+        /**
+         * Update KPI cards
+         */
+        updateKpis: function(data) {
+            if (!data) return;
+
+            var kpisEl = document.getElementById('insights-kpis');
+            if (!kpisEl) return;
+
+            // Pageviews
+            var pageviewsValue = kpisEl.querySelector('[data-kpi="pageviews"] .insights-kpi-value');
+            var pageviewsTrend = kpisEl.querySelector('[data-kpi="pageviews"] .insights-kpi-trend');
+            if (pageviewsValue) {
+                pageviewsValue.textContent = this.formatNumber(data.pageviews);
+            }
+            if (pageviewsTrend) {
+                var trendClass = data.pageviewsTrend >= 0 ? 'positive' : 'negative';
+                var arrow = data.pageviewsTrend >= 0 ? '↑' : '↓';
+                pageviewsTrend.className = 'insights-kpi-trend ' + trendClass;
+                pageviewsTrend.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.pageviewsTrend) + '% vs previous period';
+            }
+
+            // Unique Visitors
+            var visitorsValue = kpisEl.querySelector('[data-kpi="visitors"] .insights-kpi-value');
+            var visitorsTrend = kpisEl.querySelector('[data-kpi="visitors"] .insights-kpi-trend');
+            if (visitorsValue) {
+                visitorsValue.textContent = this.formatNumber(data.uniqueVisitors);
+            }
+            if (visitorsTrend) {
+                var trendClass = data.visitorsTrend >= 0 ? 'positive' : 'negative';
+                var arrow = data.visitorsTrend >= 0 ? '↑' : '↓';
+                visitorsTrend.className = 'insights-kpi-trend ' + trendClass;
+                visitorsTrend.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.visitorsTrend) + '% vs previous period';
+            }
+
+            // Avg Time on Page
+            var avgTimeValue = kpisEl.querySelector('[data-kpi="avgTime"] .insights-kpi-value');
+            if (avgTimeValue) {
+                var minutes = Math.floor(data.avgTimeOnPage / 60);
+                var seconds = data.avgTimeOnPage % 60;
+                avgTimeValue.textContent = minutes + 'm ' + seconds + 's';
+            }
+
+            // Bounce Rate
+            var bounceValue = kpisEl.querySelector('[data-kpi="bounceRate"] .insights-kpi-value');
+            if (bounceValue) {
+                bounceValue.textContent = data.bounceRate + '%';
+            }
+        },
+
+        /**
+         * Update chart with new data
+         */
+        updateChart: function(data) {
+            if (!data || !this.chart) return;
+
+            this.chart.data.labels = data.labels;
+            this.chart.data.datasets[0].data = data.pageviews;
+            this.chart.data.datasets[1].data = data.visitors;
+            this.chart.update('none'); // 'none' for no animation on update
+        },
+
+        /**
+         * Update top pages table
+         */
+        updateTopPages: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-pages tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(page) {
+                html += '<tr>';
+                html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.views) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.uniqueVisitors) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update top referrers table
+         */
+        updateTopReferrers: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-referrers tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(ref) {
+                var domain = ref.referrerDomain || 'Direct';
+                html += '<tr>';
+                html += '<td>' + self.escapeHtml(domain) + '</td>';
+                html += '<td><span class="insights-badge ' + ref.referrerType + '">' + ref.referrerType + '</span></td>';
+                html += '<td class="number">' + self.formatNumber(ref.visits) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update devices & browsers tables
+         */
+        updateDevices: function(devices, browsers) {
+            if (devices) {
+                var devicesTbody = document.querySelector('#table-devices tbody');
+                if (devicesTbody) {
+                    var html = '';
+                    var self = this;
+                    devices.forEach(function(device) {
+                        html += '<tr>';
+                        html += '<td>' + self.capitalize(device.deviceType) + '</td>';
+                        html += '<td class="number">' + self.formatNumber(device.visits) + '</td>';
+                        html += '</tr>';
+                    });
+                    devicesTbody.innerHTML = html;
+                }
+            }
+
+            if (browsers) {
+                var browsersTbody = document.querySelector('#table-browsers tbody');
+                if (browsersTbody) {
+                    var html = '';
+                    var self = this;
+                    browsers.slice(0, 5).forEach(function(browser) {
+                        html += '<tr>';
+                        html += '<td>' + (browser.browserFamily || 'Unknown') + '</td>';
+                        html += '<td class="number">' + self.formatNumber(browser.visits) + '</td>';
+                        html += '</tr>';
+                    });
+                    browsersTbody.innerHTML = html;
+                }
+            }
+        },
+
+        /**
+         * Update top campaigns table
+         */
+        updateTopCampaigns: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-campaigns tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(campaign) {
+                html += '<tr>';
+                html += '<td>' + self.escapeHtml(campaign.utmSource || '-') + '</td>';
+                html += '<td>' + self.escapeHtml(campaign.utmMedium || '-') + '</td>';
+                html += '<td>' + self.escapeHtml(campaign.utmCampaign || '-') + '</td>';
+                html += '<td class="number">' + self.formatNumber(campaign.visits) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update top countries table
+         */
+        updateTopCountries: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-countries tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(country) {
+                html += '<tr>';
+                html += '<td class="insights-country">';
+                html += '<span class="insights-country-flag">' + country.flag + '</span>';
+                html += '<span>' + self.escapeHtml(country.name) + '</span>';
+                html += '</td>';
+                html += '<td class="number">' + self.formatNumber(country.visits) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update top events table
+         */
+        updateTopEvents: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-events tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(event) {
+                html += '<tr>';
+                html += '<td>' + self.escapeHtml(event.eventName) + '</td>';
+                html += '<td>';
+                if (event.eventCategory) {
+                    html += '<span class="insights-badge-category">' + self.escapeHtml(event.eventCategory) + '</span>';
+                } else {
+                    html += '<span class="insights-muted">-</span>';
+                }
+                html += '</td>';
+                html += '<td class="number">' + self.formatNumber(event.count) + '</td>';
+                html += '<td class="number">' + self.formatNumber(event.uniqueVisitors) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update top outbound links table
+         */
+        updateTopOutbound: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-outbound tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(link) {
+                html += '<tr>';
+                html += '<td>' + self.escapeHtml(link.targetDomain) + '</td>';
+                html += '<td class="number">' + self.formatNumber(link.clicks) + '</td>';
+                html += '<td class="number">' + self.formatNumber(link.uniqueVisitors) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update top searches table
+         */
+        updateTopSearches: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-top-searches tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(search) {
+                html += '<tr>';
+                html += '<td>' + self.escapeHtml(search.searchTerm) + '</td>';
+                html += '<td class="number">' + self.formatNumber(search.searches) + '</td>';
+                html += '<td class="number">' + self.formatNumber(search.uniqueVisitors) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Capitalize first letter
+         */
+        capitalize: function(str) {
+            if (!str) return '';
+            return str.charAt(0).toUpperCase() + str.slice(1);
         },
 
         /**
@@ -241,8 +524,8 @@
          * Cleanup on page unload
          */
         destroy: function() {
-            if (this.realtimeInterval) {
-                clearInterval(this.realtimeInterval);
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
             }
             if (this.chart) {
                 this.chart.destroy();

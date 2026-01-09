@@ -71,8 +71,8 @@
 
     {# KPI Cards #}
     {% if currentUser.can('insights:viewDashboardKpis') %}
-    <div class="insights-kpis">
-        <div class="insights-kpi">
+    <div class="insights-kpis" id="insights-kpis">
+        <div class="insights-kpi" data-kpi="pageviews">
             <div class="insights-kpi-label">{{ 'Pageviews'|t('insights') }}</div>
             <div class="insights-kpi-value">{{ summary.pageviews|number_format }}</div>
             <div class="insights-kpi-trend {{ summary.pageviewsTrend >= 0 ? 'positive' : 'negative' }}">
@@ -84,7 +84,7 @@
                 {{ summary.pageviewsTrend|abs }}% {{ 'vs previous period'|t('insights') }}
             </div>
         </div>
-        <div class="insights-kpi">
+        <div class="insights-kpi" data-kpi="visitors">
             <div class="insights-kpi-label">{{ 'Unique Visitors'|t('insights') }}</div>
             <div class="insights-kpi-value">{{ summary.uniqueVisitors|number_format }}</div>
             <div class="insights-kpi-trend {{ summary.visitorsTrend >= 0 ? 'positive' : 'negative' }}">
@@ -96,7 +96,7 @@
                 {{ summary.visitorsTrend|abs }}% {{ 'vs previous period'|t('insights') }}
             </div>
         </div>
-        <div class="insights-kpi">
+        <div class="insights-kpi" data-kpi="avgTime">
             <div class="insights-kpi-label">{{ 'Avg. Time on Page'|t('insights') }}</div>
             <div class="insights-kpi-value">
                 {% set minutes = (summary.avgTimeOnPage / 60)|round(0, 'floor') %}
@@ -105,7 +105,7 @@
             </div>
             <div class="insights-kpi-trend neutral">{{ 'Average per pageview'|t('insights') }}</div>
         </div>
-        <div class="insights-kpi">
+        <div class="insights-kpi" data-kpi="bounceRate">
             <div class="insights-kpi-label">{{ 'Bounce Rate'|t('insights') }}</div>
             <div class="insights-kpi-value">{{ summary.bounceRate }}%</div>
             <div class="insights-kpi-trend neutral">{{ 'Single page visits'|t('insights') }}</div>
@@ -137,7 +137,7 @@
                 {% endif %}
             </div>
             {% if topPages|length %}
-            <table class="insights-table">
+            <table class="insights-table" id="table-top-pages">
                 <thead>
                     <tr>
                         <th>{{ 'Page'|t('insights') }}</th>
@@ -174,7 +174,7 @@
                 {% endif %}
             </div>
             {% if topReferrers|length %}
-            <table class="insights-table">
+            <table class="insights-table" id="table-top-referrers">
                 <thead>
                     <tr>
                         <th>{{ 'Source'|t('insights') }}</th>
@@ -209,7 +209,7 @@
                 <h2>{{ 'Devices & Browsers'|t('insights') }}</h2>
             </div>
             {% if devices|length %}
-            <table class="insights-table">
+            <table class="insights-table" id="table-devices">
                 <thead>
                     <tr>
                         <th>{{ 'Device'|t('insights') }}</th>
@@ -226,7 +226,7 @@
                 </tbody>
             </table>
             <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--insights-gray-200);">
-            <table class="insights-table">
+            <table class="insights-table" id="table-browsers">
                 <thead>
                     <tr>
                         <th>{{ 'Browser'|t('insights') }}</th>
@@ -261,7 +261,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topCampaigns|length %}
-                <table class="insights-table">
+                <table class="insights-table" id="table-top-campaigns">
                     <thead>
                         <tr>
                             <th>{{ 'Source'|t('insights') }}</th>
@@ -308,7 +308,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topCountries|length %}
-                <table class="insights-table">
+                <table class="insights-table" id="table-top-countries">
                     <thead>
                         <tr>
                             <th>{{ 'Country'|t('insights') }}</th>
@@ -353,7 +353,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topEvents|length %}
-                <table class="insights-table">
+                <table class="insights-table" id="table-top-events">
                     <thead>
                         <tr>
                             <th>{{ 'Event'|t('insights') }}</th>
@@ -406,7 +406,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topOutboundLinks|length %}
-                <table class="insights-table">
+                <table class="insights-table" id="table-top-outbound">
                     <thead>
                         <tr>
                             <th>{{ 'Domain'|t('insights') }}</th>
@@ -451,7 +451,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topSearches|length %}
-                <table class="insights-table">
+                <table class="insights-table" id="table-top-searches">
                     <thead>
                         <tr>
                             <th>{{ 'Search Term'|t('insights') }}</th>

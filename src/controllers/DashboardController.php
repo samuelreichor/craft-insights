@@ -181,6 +181,89 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get all dashboard data (AJAX endpoint for live updates).
+     */
+    public function actionDashboardData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requireAnyDashboardPermission();
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+        $user = Craft::$app->getUser()->getIdentity();
+
+        $siteId = (int)($request->getQueryParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+
+        $stats = Insights::getInstance()->stats;
+        $isPro = Insights::getInstance()->isPro();
+
+        $data = [];
+
+        // Summary/KPIs
+        if ($user->can(Permission::ViewDashboardKpis->value)) {
+            $data['summary'] = $stats->getSummary($siteId, $range);
+        }
+
+        // Chart data
+        if ($user->can(Permission::ViewDashboardChart->value)) {
+            $data['chartData'] = $stats->getChartData($siteId, $range);
+        }
+
+        // Realtime
+        if ($user->can(Permission::ViewDashboardRealtime->value)) {
+            $data['realtime'] = $stats->getRealtimeVisitors($siteId);
+        }
+
+        // Top Pages
+        if ($user->can(Permission::ViewDashboardPages->value)) {
+            $data['topPages'] = $stats->getTopPages($siteId, $range, 10);
+        }
+
+        // Top Referrers
+        if ($user->can(Permission::ViewDashboardReferrers->value)) {
+            $data['topReferrers'] = $stats->getTopReferrers($siteId, $range, 10);
+        }
+
+        // Devices & Browsers
+        if ($user->can(Permission::ViewDashboardDevices->value)) {
+            $data['devices'] = $stats->getDeviceBreakdown($siteId, $range);
+            $data['browsers'] = $stats->getBrowserBreakdown($siteId, $range);
+        }
+
+        // Pro features
+        if ($isPro) {
+            if ($user->can(Permission::ViewDashboardCampaigns->value)) {
+                $data['topCampaigns'] = $stats->getTopCampaigns($siteId, $range, 10);
+            }
+            if ($user->can(Permission::ViewDashboardCountries->value)) {
+                $topCountries = $stats->getTopCountries($siteId, $range, 10);
+                $variable = new \samuelreichor\insights\variables\InsightsVariable();
+                $data['topCountries'] = array_map(function($country) use ($variable) {
+                    return [
+                        'countryCode' => $country['countryCode'],
+                        'visits' => $country['visits'],
+                        'flag' => $variable->getCountryFlag($country['countryCode']),
+                        'name' => $variable->getCountryName($country['countryCode']),
+                    ];
+                }, $topCountries);
+            }
+            if ($user->can(Permission::ViewDashboardEvents->value)) {
+                $data['topEvents'] = $stats->getTopEvents($siteId, $range, 10);
+            }
+            if ($user->can(Permission::ViewDashboardOutbound->value)) {
+                $data['topOutboundLinks'] = $stats->getTopOutboundLinks($siteId, $range, 10);
+            }
+            if ($user->can(Permission::ViewDashboardSearches->value)) {
+                $data['topSearches'] = $stats->getTopSearches($siteId, $range, 10);
+            }
+        }
+
+        return $this->asJson($data);
+    }
+
+    /**
      * Get chart data (AJAX endpoint).
      */
     public function actionChartData(): Response
