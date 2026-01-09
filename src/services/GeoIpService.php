@@ -28,11 +28,8 @@ class GeoIpService extends Component
      */
     public function getCountry(string $ip): ?string
     {
-        // Pro feature only
-        if (!Insights::getInstance()->isPro()) {
-            return null;
-        }
-
+        // Note: Data is collected for all users (Lite + Pro) so they have
+        // historical data when upgrading. Display is restricted to Pro only.
         $logger = Insights::getInstance()->logger;
 
         // Private/local IPs cannot be geolocated

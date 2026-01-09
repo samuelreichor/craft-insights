@@ -98,20 +98,9 @@ class TrackController extends Controller
             }
         }
 
-        // Check for Pro-only features (event tracking and outbound link tracking)
+        // Note: All event types are processed for all users (Lite + Pro) so they
+        // have historical data when upgrading. Display is restricted to Pro only.
         $eventType = EventType::tryFrom($data['t'] ?? EventType::Pageview->value);
-        if ($eventType === EventType::Event && !Insights::getInstance()->isPro()) {
-            $logger->debug('Event tracking requires Pro edition');
-            return $this->asJson(['status' => 'pro_required']);
-        }
-        if ($eventType === EventType::Outbound && !Insights::getInstance()->isPro()) {
-            $logger->debug('Outbound link tracking requires Pro edition');
-            return $this->asJson(['status' => 'pro_required']);
-        }
-        if ($eventType === EventType::Search && !Insights::getInstance()->isPro()) {
-            $logger->debug('Search tracking requires Pro edition');
-            return $this->asJson(['status' => 'pro_required']);
-        }
 
         $siteId = Craft::$app->getSites()->getCurrentSite()->id;
 
@@ -139,9 +128,9 @@ class TrackController extends Controller
                     EventType::Pageview => $tracking->processPageview($data, $userAgent, $ip, $siteId, $acceptLanguage),
                     EventType::Engagement => $tracking->processEngagement($data, $siteId),
                     EventType::Leave => $tracking->processLeave($data, $siteId),
-                    EventType::Event => $tracking->processEvent($data, $userAgent, $siteId, $acceptLanguage),
-                    EventType::Outbound => $tracking->processOutbound($data, $userAgent, $siteId, $acceptLanguage),
-                    EventType::Search => $tracking->processSearch($data, $userAgent, $siteId, $acceptLanguage),
+                    EventType::Event => $tracking->processEvent($data, $userAgent, $ip, $siteId),
+                    EventType::Outbound => $tracking->processOutbound($data, $userAgent, $ip, $siteId),
+                    EventType::Search => $tracking->processSearch($data, $userAgent, $ip, $siteId),
                     default => null,
                 };
                 $logger->debug('Synchronous processing completed');

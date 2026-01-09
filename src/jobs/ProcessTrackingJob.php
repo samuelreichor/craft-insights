@@ -73,20 +73,20 @@ class ProcessTrackingJob extends BaseJob
                 EventType::Event => $tracking->processEvent(
                     $this->data,
                     $this->userAgent,
-                    $this->siteId,
-                    $this->acceptLanguage
+                    $this->ip,
+                    $this->siteId
                 ),
                 EventType::Outbound => $tracking->processOutbound(
                     $this->data,
                     $this->userAgent,
-                    $this->siteId,
-                    $this->acceptLanguage
+                    $this->ip,
+                    $this->siteId
                 ),
                 EventType::Search => $tracking->processSearch(
                     $this->data,
                     $this->userAgent,
-                    $this->siteId,
-                    $this->acceptLanguage
+                    $this->ip,
+                    $this->siteId
                 ),
                 default => $logger->warning("Unknown tracking type: {$this->type}"),
             };

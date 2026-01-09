@@ -250,6 +250,75 @@
         </div>
         {% endif %}
 
+        {# Top Countries #}
+        {% if currentUser.can('insights:viewDashboardCountries') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Top Countries'|t('insights') }}</h2>
+                {% if plugin('insights').is('pro') and currentUser.can('insights:viewCountries') %}
+                <a href="{{ cpUrl('insights/countries', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if plugin('insights').is('pro') %}
+                {% if topCountries|length %}
+                <table class="insights-table" id="table-top-countries">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Country'|t('insights') }}</th>
+                            <th class="number">{{ 'Visits'|t('insights') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for country in topCountries %}
+                        <tr>
+                            <td class="insights-country">
+                                <span class="insights-country-flag">{{ craft.insights.getCountryFlag(country.countryCode) }}</span>
+                                <span>{{ craft.insights.getCountryName(country.countryCode) }}</span>
+                            </td>
+                            <td class="number">{{ country.visits|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No country data yet'|t('insights') }}</p>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="insights-preview-wrapper">
+                    {% if proPreviews.countries|length %}
+                    <table class="insights-table insights-blurred" aria-hidden="true">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Country'|t('insights') }}</th>
+                                <th class="number">{{ 'Visits'|t('insights') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {# Placeholder rows based on real data count - upgrade to Pro to see actual values #}
+                            {% for item in proPreviews.countries %}
+                            <tr><td class="insights-country"><span class="insights-country-flag">🏳️</span><span>Sample Country</span></td><td class="number">---</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="insights-empty insights-blurred">
+                        <p>{{ 'No country data yet'|t('insights') }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
+                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {# Top Campaigns #}
         {% if currentUser.can('insights:viewDashboardCampaigns') %}
         <div class="insights-table-container">
@@ -288,55 +357,36 @@
                 </div>
                 {% endif %}
             {% else %}
-                <div class="insights-upgrade-notice">
-                    <p class="insights-upgrade-title">{{ 'Campaign tracking is a Pro feature'|t('insights') }}</p>
-                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to track UTM campaigns and measure marketing effectiveness.'|t('insights') }}</p>
-                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
-                </div>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {# Top Countries #}
-        {% if currentUser.can('insights:viewDashboardCountries') %}
-        <div class="insights-table-container">
-            <div class="insights-table-header">
-                <h2>{{ 'Top Countries'|t('insights') }}</h2>
-                {% if plugin('insights').is('pro') and currentUser.can('insights:viewCountries') %}
-                <a href="{{ cpUrl('insights/countries', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
-                {% endif %}
-            </div>
-            {% if plugin('insights').is('pro') %}
-                {% if topCountries|length %}
-                <table class="insights-table" id="table-top-countries">
-                    <thead>
-                        <tr>
-                            <th>{{ 'Country'|t('insights') }}</th>
-                            <th class="number">{{ 'Visits'|t('insights') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for country in topCountries %}
-                        <tr>
-                            <td class="insights-country">
-                                <span class="insights-country-flag">{{ craft.insights.getCountryFlag(country.countryCode) }}</span>
-                                <span>{{ craft.insights.getCountryName(country.countryCode) }}</span>
-                            </td>
-                            <td class="number">{{ country.visits|number_format }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No country data yet'|t('insights') }}</p>
-                </div>
-                {% endif %}
-            {% else %}
-                <div class="insights-upgrade-notice">
-                    <p class="insights-upgrade-title">{{ 'Country tracking is a Pro feature'|t('insights') }}</p>
-                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to see where your visitors come from.'|t('insights') }}</p>
-                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                <div class="insights-preview-wrapper">
+                    {% if proPreviews.campaigns|length %}
+                    <table class="insights-table insights-blurred" aria-hidden="true">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Source'|t('insights') }}</th>
+                                <th>{{ 'Medium'|t('insights') }}</th>
+                                <th>{{ 'Campaign'|t('insights') }}</th>
+                                <th class="number">{{ 'Visits'|t('insights') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {# Placeholder rows based on real data count - upgrade to Pro to see actual values #}
+                            {% for item in proPreviews.campaigns %}
+                            <tr><td>example-source</td><td>sample-medium</td><td>campaign-name</td><td class="number">---</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="insights-empty insights-blurred">
+                        <p>{{ 'No campaign data yet'|t('insights') }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
+                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
                 </div>
             {% endif %}
         </div>
@@ -386,10 +436,36 @@
                 </div>
                 {% endif %}
             {% else %}
-                <div class="insights-upgrade-notice">
-                    <p class="insights-upgrade-title">{{ 'Event tracking is a Pro feature'|t('insights') }}</p>
-                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to track custom events like button clicks, downloads, and conversions.'|t('insights') }}</p>
-                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                <div class="insights-preview-wrapper">
+                    {% if proPreviews.events|length %}
+                    <table class="insights-table insights-blurred" aria-hidden="true">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Event'|t('insights') }}</th>
+                                <th>{{ 'Category'|t('insights') }}</th>
+                                <th class="number">{{ 'Count'|t('insights') }}</th>
+                                <th class="number">{{ 'Visitors'|t('insights') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {# Placeholder rows based on real data count - upgrade to Pro to see actual values #}
+                            {% for item in proPreviews.events %}
+                            <tr><td>sample_event</td><td><span class="insights-badge-category">category</span></td><td class="number">---</td><td class="number">---</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="insights-empty insights-blurred">
+                        <p>{{ 'No event data yet'|t('insights') }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
+                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
                 </div>
             {% endif %}
         </div>
@@ -431,10 +507,35 @@
                 </div>
                 {% endif %}
             {% else %}
-                <div class="insights-upgrade-notice">
-                    <p class="insights-upgrade-title">{{ 'Outbound link tracking is a Pro feature'|t('insights') }}</p>
-                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to see which external links your visitors click.'|t('insights') }}</p>
-                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                <div class="insights-preview-wrapper">
+                    {% if proPreviews.outbound|length %}
+                    <table class="insights-table insights-blurred" aria-hidden="true">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Domain'|t('insights') }}</th>
+                                <th class="number">{{ 'Clicks'|t('insights') }}</th>
+                                <th class="number">{{ 'Visitors'|t('insights') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {# Placeholder rows based on real data count - upgrade to Pro to see actual values #}
+                            {% for item in proPreviews.outbound %}
+                            <tr><td>example-domain.com</td><td class="number">---</td><td class="number">---</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="insights-empty insights-blurred">
+                        <p>{{ 'No outbound link data yet'|t('insights') }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
+                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
                 </div>
             {% endif %}
         </div>
@@ -476,10 +577,35 @@
                 </div>
                 {% endif %}
             {% else %}
-                <div class="insights-upgrade-notice">
-                    <p class="insights-upgrade-title">{{ 'Site search tracking is a Pro feature'|t('insights') }}</p>
-                    <p class="insights-upgrade-text">{{ 'Upgrade to Insights Pro to see what your visitors are searching for.'|t('insights') }}</p>
-                    <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to Pro'|t('insights') }}</a>
+                <div class="insights-preview-wrapper">
+                    {% if proPreviews.searches|length %}
+                    <table class="insights-table insights-blurred" aria-hidden="true">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Search Term'|t('insights') }}</th>
+                                <th class="number">{{ 'Searches'|t('insights') }}</th>
+                                <th class="number">{{ 'Visitors'|t('insights') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {# Placeholder rows based on real data count - upgrade to Pro to see actual values #}
+                            {% for item in proPreviews.searches %}
+                            <tr><td>search query example</td><td class="number">---</td><td class="number">---</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="insights-empty insights-blurred">
+                        <p>{{ 'No search data yet'|t('insights') }}</p>
+                    </div>
+                    {% endif %}
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
+                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
                 </div>
             {% endif %}
         </div>

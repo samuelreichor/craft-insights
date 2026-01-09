@@ -13,36 +13,47 @@ use WhichBrowser\Parser;
  *
  * Generates DSGVO-compliant daily visitor hashes without storing any PII.
  * The hash is based on non-identifying attributes and changes daily.
+ *
+ * Uses the same approach as Plausible and Fathom Analytics:
+ * - IP address used transiently for hash generation only
+ * - Website domain prevents cross-site tracking
+ * - Daily salt rotation prevents cross-day correlation
  */
 class VisitorService extends Component
 {
     /**
      * Generate a daily, non-persistent visitor hash.
      *
-     * This hash is DSGVO-compliant because:
+     * This hash is GDPR/DSGVO-compliant because:
+     * - IP address is used transiently and NEVER stored
+     * - SHA256 is irreversible - no PII can be recovered
      * - It changes daily (no persistent tracking)
-     * - It doesn't include IP address
-     * - It only uses general, non-identifying attributes
-     * - It cannot be reversed to identify the user
+     * - Website domain prevents cross-site correlation
+     *
+     * Formula: SHA256(daily_salt | domain | ip | user_agent)
+     * This matches the approach used by Plausible and Fathom.
      *
      * @param string $userAgent The user agent string
-     * @param string $screenCategory Screen size category (s/m/l)
-     * @param string|null $acceptLanguage The accept-language header
+     * @param string $ip IP address (used transiently for hash, NOT stored)
+     * @param int $siteId Site ID to extract domain
      */
-    public function generateHash(string $userAgent, string $screenCategory = 'm', ?string $acceptLanguage = null): string
+    public function generateHash(string $userAgent, string $ip, int $siteId): string
     {
         $salt = $this->getDailySalt();
 
-        // Only coarse, non-identifying attributes
+        // Extract domain from site's base URL (prevents cross-site tracking)
+        $site = Craft::$app->getSites()->getSiteById($siteId);
+        $domain = parse_url($site?->getBaseUrl() ?? '', PHP_URL_HOST) ?? 'localhost';
+
+        // Plausible/Fathom-style hash
+        // IP is used ONLY for hash generation and is NEVER stored
         $attributes = [
             $salt,
-            date('Y-m-d'), // Only valid for today
-            $this->getBrowserFamily($userAgent),
-            $this->getPrimaryLanguage($acceptLanguage),
-            $screenCategory, // small/medium/large
+            $domain,
+            $ip,
+            $userAgent,
         ];
 
-        // IMPORTANT: No IP, no exact User-Agent!
         return hash('sha256', implode('|', $attributes));
     }
 

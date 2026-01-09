@@ -74,34 +74,13 @@ class InsightsVariable
     }
 
     /**
-     * Get entry stats.
-     *
-     * Usage: {{ craft.insights.getEntryStats(entry.id, '30d') }}
-     *
-     * @return array{views: int, uniqueVisitors: int, avgTime: float, bounceRate: float}
-     */
-    public function getEntryStats(int $entryId, string $range = '30d'): array
-    {
-        return Insights::getInstance()->stats->getEntryStats($entryId, $range);
-    }
-
-    /**
      * Get GeoIP database info.
+     * Available for all users since country data is collected for everyone.
      *
      * @return array{exists: bool, path: string|null, size: int|null, modified: string|null}
      */
     public function getGeoIpDatabaseInfo(): array
     {
-        // Pro feature only
-        if (!Insights::getInstance()->isPro()) {
-            return [
-                'exists' => false,
-                'path' => null,
-                'size' => null,
-                'modified' => null,
-            ];
-        }
-
         return Insights::getInstance()->geoip->getDatabaseInfo();
     }
 
@@ -139,57 +118,6 @@ class InsightsVariable
         $flag = mb_chr(ord($code[0]) + $flagOffset) . mb_chr(ord($code[1]) + $flagOffset);
 
         return $flag;
-    }
-
-    /**
-     * Check if tracking is enabled.
-     */
-    public function isEnabled(): bool
-    {
-        return Insights::getInstance()->getSettings()->enabled;
-    }
-
-    /**
-     * Get the current realtime visitor count.
-     */
-    public function getRealtimeCount(?int $siteId = null): int
-    {
-        if ($siteId === null) {
-            $siteId = Craft::$app->getSites()->getCurrentSite()->id;
-        }
-
-        $realtime = Insights::getInstance()->stats->getRealtimeVisitors($siteId);
-        return $realtime['count'];
-    }
-
-    /**
-     * Get summary stats for the current site.
-     *
-     * @return array{pageviews: int, uniqueVisitors: int, bounceRate: float, avgTimeOnPage: float, pageviewsTrend: float, visitorsTrend: float}
-     */
-    public function getSummary(string $range = '30d', ?int $siteId = null): array
-    {
-        if ($siteId === null) {
-            $siteId = Craft::$app->getSites()->getCurrentSite()->id;
-        }
-
-        return Insights::getInstance()->stats->getSummary($siteId, $range);
-    }
-
-    /**
-     * Get top events (Pro feature).
-     *
-     * Usage: {{ craft.insights.getTopEvents('30d', 10) }}
-     *
-     * @return array<int, array{eventName: string, eventCategory: string|null, count: int, uniqueVisitors: int}>
-     */
-    public function getTopEvents(string $range = '30d', int $limit = 10, ?int $siteId = null): array
-    {
-        if ($siteId === null) {
-            $siteId = Craft::$app->getSites()->getCurrentSite()->id;
-        }
-
-        return Insights::getInstance()->stats->getTopEvents($siteId, $range, $limit);
     }
 
     /**

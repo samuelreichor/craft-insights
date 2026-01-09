@@ -649,4 +649,119 @@ class StatsService extends Component
             ->orderBy(['searches' => SORT_DESC])
             ->all();
     }
+
+    /**
+     * Get teaser preview data for Pro features (available to Lite users).
+     * Returns limited preview data for blurred display.
+     *
+     * @return array{countries: array, campaigns: array, events: array, outbound: array, searches: array}
+     */
+    public function getProFeaturePreviews(int $siteId, string $range): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+        $limit = 3;
+
+        return [
+            'countries' => $this->getPreviewCountries($siteId, $startDate, $endDate, $limit),
+            'campaigns' => $this->getPreviewCampaigns($siteId, $startDate, $endDate, $limit),
+            'events' => $this->getPreviewEvents($siteId, $startDate, $endDate, $limit),
+            'outbound' => $this->getPreviewOutbound($siteId, $startDate, $endDate, $limit),
+            'searches' => $this->getPreviewSearches($siteId, $startDate, $endDate, $limit),
+        ];
+    }
+
+    /**
+     * Get preview countries data (no Pro check).
+     *
+     * @return array<int, array{countryCode: string, visits: int}>
+     */
+    private function getPreviewCountries(int $siteId, string $startDate, string $endDate, int $limit): array
+    {
+        return (new Query())
+            ->select(['countryCode', 'SUM([[visits]]) as visits'])
+            ->from(Constants::TABLE_COUNTRIES)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['countryCode'])
+            ->orderBy(['visits' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get preview campaigns data (no Pro check).
+     *
+     * @return array<int, array{utmSource: string|null, utmMedium: string|null, utmCampaign: string|null, visits: int}>
+     */
+    private function getPreviewCampaigns(int $siteId, string $startDate, string $endDate, int $limit): array
+    {
+        return (new Query())
+            ->select(['utmSource', 'utmMedium', 'utmCampaign', 'SUM([[visits]]) as visits'])
+            ->from(Constants::TABLE_CAMPAIGNS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['utmSource', 'utmMedium', 'utmCampaign'])
+            ->orderBy(['visits' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get preview events data (no Pro check).
+     *
+     * @return array<int, array{eventName: string, eventCategory: string|null, count: int, uniqueVisitors: int}>
+     */
+    private function getPreviewEvents(int $siteId, string $startDate, string $endDate, int $limit): array
+    {
+        return (new Query())
+            ->select(['eventName', 'eventCategory', 'SUM([[count]]) as count', 'SUM([[uniqueVisitors]]) as uniqueVisitors'])
+            ->from(Constants::TABLE_EVENTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['eventName', 'eventCategory'])
+            ->orderBy(['count' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get preview outbound data (no Pro check).
+     *
+     * @return array<int, array{targetDomain: string, clicks: int, uniqueVisitors: int}>
+     */
+    private function getPreviewOutbound(int $siteId, string $startDate, string $endDate, int $limit): array
+    {
+        return (new Query())
+            ->select(['targetDomain', 'SUM([[clicks]]) as clicks', 'SUM([[uniqueVisitors]]) as uniqueVisitors'])
+            ->from(Constants::TABLE_OUTBOUND)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['targetDomain'])
+            ->orderBy(['clicks' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get preview searches data (no Pro check).
+     *
+     * @return array<int, array{searchTerm: string, searches: int, uniqueVisitors: int}>
+     */
+    private function getPreviewSearches(int $siteId, string $startDate, string $endDate, int $limit): array
+    {
+        return (new Query())
+            ->select(['searchTerm', 'SUM([[searches]]) as searches', 'SUM([[uniqueVisitors]]) as uniqueVisitors'])
+            ->from(Constants::TABLE_SEARCHES)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['searchTerm'])
+            ->orderBy(['searches' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
 }

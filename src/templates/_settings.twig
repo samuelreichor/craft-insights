@@ -127,19 +127,25 @@
 
 <hr>
 
-{% if plugin.is('pro') %}
 {# ========== GEOIP DATABASE ========== #}
+{# GeoIP is available for all users - data is collected for future Pro upgrade #}
 <h2>{{ 'GeoIP Database'|t('insights') }}</h2>
 
 {{ forms.textField({
     label: 'Database Path'|t('insights'),
-    instructions: 'Path to the MaxMind GeoLite2-Country database file.'|t('insights'),
+    instructions: 'Path to the MaxMind GeoLite2-Country database file. Country data is collected for all users.'|t('insights'),
     name: 'geoIpDatabasePath',
     value: settings.geoIpDatabasePath,
     placeholder: '@storage/geoip/GeoLite2-Country.mmdb',
 }) }}
 
+
 {% set geoipInfo = craft.insights.getGeoIpDatabaseInfo() %}
+{% if not plugin.is('pro') and geoipInfo.exists %}
+    <div class="input ltr" style="padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e; margin-top: -12px;">
+        {{ 'Country data is being collected. Upgrade to Pro to view detailed country statistics.'|t('insights') }}<br>
+    </div>
+{% endif %}
 <div class="field">
     <div class="heading">
         <label>{{ 'Database Status'|t('insights') }}</label>
@@ -157,7 +163,6 @@
 </div>
 
 <hr>
-{% endif %}
 
 {# ========== PERFORMANCE ========== #}
 <h2>{{ 'Performance'|t('insights') }}</h2>

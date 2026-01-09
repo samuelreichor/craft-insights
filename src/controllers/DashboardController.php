@@ -30,6 +30,10 @@ class DashboardController extends Controller
         $range = $request->getQueryParam('range', $settings->defaultDateRange);
 
         $stats = Insights::getInstance()->stats;
+        $isPro = Insights::getInstance()->isPro();
+
+        // Preview data for Lite users (row count only, content is placeholder)
+        $proPreviews = !$isPro ? $stats->getProFeaturePreviews($siteId, $range) : null;
 
         return $this->renderTemplate('insights/_index', [
             'summary' => $stats->getSummary($siteId, $range),
@@ -47,6 +51,7 @@ class DashboardController extends Controller
             'selectedSiteId' => $siteId,
             'selectedRange' => $range,
             'settings' => $settings,
+            'proPreviews' => $proPreviews,
         ]);
     }
 
@@ -258,6 +263,9 @@ class DashboardController extends Controller
             if ($user->can(Permission::ViewDashboardSearches->value)) {
                 $data['topSearches'] = $stats->getTopSearches($siteId, $range, 10);
             }
+        } else {
+            // Preview data for Lite users (row count only, content is placeholder)
+            $data['proPreviews'] = $stats->getProFeaturePreviews($siteId, $range);
         }
 
         return $this->asJson($data);

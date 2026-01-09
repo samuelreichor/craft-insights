@@ -45,9 +45,9 @@ class TrackingService extends Component
 
         $logger->step('Pageview', 'URL sanitized', ['url' => $url, 'screenCategory' => $screenCategory]);
 
-        // Generate visitor hash
+        // Generate visitor hash (Plausible/Fathom-style with IP)
         $logger->startTimer('visitorHash');
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
         $logger->stopTimer('visitorHash');
 
         // Find entry ID for this URL
@@ -90,8 +90,8 @@ class TrackingService extends Component
             $logger->stopTimer('trackReferrer', ['domain' => $data['r']]);
         }
 
-        // Track UTM parameters (Pro feature)
-        if (Insights::getInstance()->isPro() && !empty($data['utm']['s'])) {
+        // Track UTM parameters (collected for all users, displayed in Pro only)
+        if (!empty($data['utm']['s'])) {
             $logger->startTimer('trackCampaign');
             $this->trackCampaign($data['utm'], $siteId, $date);
             $logger->stopTimer('trackCampaign', ['source' => $data['utm']['s']]);
@@ -361,20 +361,18 @@ class TrackingService extends Component
     }
 
     /**
-     * Process a custom event (Pro feature).
+     * Process a custom event.
+     *
+     * Data is collected for all users (Lite + Pro) so they have historical
+     * data when upgrading. Display is restricted to Pro only.
      *
      * @param array<string, mixed> $data Tracking data from frontend
      * @param string $userAgent User agent string
+     * @param string $ip IP address (used transiently for hash, NOT stored)
      * @param int $siteId Site ID
-     * @param string|null $acceptLanguage Accept-Language header
      */
-    public function processEvent(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    public function processEvent(array $data, string $userAgent, string $ip, int $siteId): void
     {
-        // Pro feature only
-        if (!Insights::getInstance()->isPro()) {
-            return;
-        }
-
         $logger = Insights::getInstance()->logger;
         $logger->beginFeature('CustomEvent', ['siteId' => $siteId]);
 
@@ -391,8 +389,8 @@ class TrackingService extends Component
             'url' => $url,
         ]);
 
-        // Generate visitor hash for unique counting
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        // Generate visitor hash for unique counting (Plausible/Fathom-style)
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this is a new visitor for this event today
         $isNew = $this->isNewEventVisitor($visitorHash, $eventName, $siteId, $date);
@@ -435,20 +433,18 @@ class TrackingService extends Component
     }
 
     /**
-     * Process an outbound link click (Pro feature).
+     * Process an outbound link click.
+     *
+     * Data is collected for all users (Lite + Pro) so they have historical
+     * data when upgrading. Display is restricted to Pro only.
      *
      * @param array<string, mixed> $data Tracking data from frontend
      * @param string $userAgent User agent string
+     * @param string $ip IP address (used transiently for hash, NOT stored)
      * @param int $siteId Site ID
-     * @param string|null $acceptLanguage Accept-Language header
      */
-    public function processOutbound(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    public function processOutbound(array $data, string $userAgent, string $ip, int $siteId): void
     {
-        // Pro feature only
-        if (!Insights::getInstance()->isPro()) {
-            return;
-        }
-
         $logger = Insights::getInstance()->logger;
         $logger->beginFeature('OutboundLink', ['siteId' => $siteId]);
 
@@ -471,8 +467,8 @@ class TrackingService extends Component
             'sourceUrl' => $sourceUrl,
         ]);
 
-        // Generate visitor hash for unique counting
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        // Generate visitor hash for unique counting (Plausible/Fathom-style)
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this is a new visitor for this outbound link today
         $isNew = $this->isNewOutboundVisitor($visitorHash, $targetUrl, $siteId, $date);
@@ -530,20 +526,18 @@ class TrackingService extends Component
     }
 
     /**
-     * Process a site search (Pro feature).
+     * Process a site search.
+     *
+     * Data is collected for all users (Lite + Pro) so they have historical
+     * data when upgrading. Display is restricted to Pro only.
      *
      * @param array<string, mixed> $data Tracking data from frontend
      * @param string $userAgent User agent string
+     * @param string $ip IP address (used transiently for hash, NOT stored)
      * @param int $siteId Site ID
-     * @param string|null $acceptLanguage Accept-Language header
      */
-    public function processSearch(array $data, string $userAgent, int $siteId, ?string $acceptLanguage = null): void
+    public function processSearch(array $data, string $userAgent, string $ip, int $siteId): void
     {
-        // Pro feature only
-        if (!Insights::getInstance()->isPro()) {
-            return;
-        }
-
         $logger = Insights::getInstance()->logger;
         $logger->beginFeature('SiteSearch', ['siteId' => $siteId]);
 
@@ -568,8 +562,8 @@ class TrackingService extends Component
             'resultsCount' => $resultsCount,
         ]);
 
-        // Generate visitor hash for unique counting
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $screenCategory, $acceptLanguage);
+        // Generate visitor hash for unique counting (Plausible/Fathom-style)
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this is a new visitor for this search term today
         $isNew = $this->isNewSearchVisitor($visitorHash, $searchTerm, $siteId, $date);
