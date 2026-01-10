@@ -107,6 +107,75 @@ class ExportController extends Controller
     }
 
     /**
+     * Export entry pages data.
+     */
+    public function actionEntryPages(): Response
+    {
+        $this->requirePermission('insights:exportData');
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getQueryParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $format = $request->getQueryParam('format', 'csv');
+
+        $stats = Insights::getInstance()->stats;
+        $data = $stats->getTopEntryPages($siteId, $range, 1000);
+
+        $filename = "insights-entry-pages-{$range}";
+
+        return $this->exportData($data, $filename, $format);
+    }
+
+    /**
+     * Export exit pages data.
+     */
+    public function actionExitPages(): Response
+    {
+        $this->requirePermission('insights:exportData');
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getQueryParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $format = $request->getQueryParam('format', 'csv');
+
+        $stats = Insights::getInstance()->stats;
+        $data = $stats->getTopExitPages($siteId, $range, 1000);
+
+        $filename = "insights-exit-pages-{$range}";
+
+        return $this->exportData($data, $filename, $format);
+    }
+
+    /**
+     * Export scroll depth data.
+     */
+    public function actionScrollDepth(): Response
+    {
+        $this->requirePermission('insights:exportData');
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getQueryParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $format = $request->getQueryParam('format', 'csv');
+
+        $stats = Insights::getInstance()->stats;
+        $data = $stats->getScrollDepth($siteId, $range, 1000);
+
+        $filename = "insights-scroll-depth-{$range}";
+
+        return $this->exportData($data, $filename, $format);
+    }
+
+    /**
      * Export all data as a combined report.
      */
     public function actionAll(): Response

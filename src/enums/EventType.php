@@ -13,6 +13,7 @@ enum EventType: string
     case Event = 'ev';
     case Outbound = 'ob';
     case Search = 'sr';
+    case ScrollDepth = 'sd';
 
     /**
      * Get human-readable label.
@@ -26,6 +27,7 @@ enum EventType: string
             self::Event => 'Custom Event',
             self::Outbound => 'Outbound Link',
             self::Search => 'Site Search',
+            self::ScrollDepth => 'Scroll Depth',
         };
     }
 }

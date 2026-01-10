@@ -764,4 +764,253 @@ class StatsService extends Component
             ->limit($limit)
             ->all();
     }
+
+    /**
+     * Get scroll depth statistics (Pro feature).
+     *
+     * Returns aggregated scroll depth milestones for each URL.
+     *
+     * @return array<int, array{url: string, milestone25: int, milestone50: int, milestone75: int, milestone100: int}>
+     */
+    public function getScrollDepth(int $siteId, string $range, int $limit = 10): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'url',
+                'SUM([[milestone25]]) as milestone25',
+                'SUM([[milestone50]]) as milestone50',
+                'SUM([[milestone75]]) as milestone75',
+                'SUM([[milestone100]]) as milestone100',
+            ])
+            ->from(Constants::TABLE_SCROLL_DEPTH)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['url'])
+            ->orderBy(['milestone25' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get average scroll depth percentage for the site.
+     *
+     * Calculates weighted average across all milestones (Pro feature).
+     *
+     * @return array{avgScrollDepth: float, milestone25: int, milestone50: int, milestone75: int, milestone100: int}
+     */
+    public function getAverageScrollDepth(int $siteId, string $range): array
+    {
+        // Pro feature only
+        if (!Insights::getInstance()->isPro()) {
+            return [
+                'avgScrollDepth' => 0,
+                'milestone25' => 0,
+                'milestone50' => 0,
+                'milestone75' => 0,
+                'milestone100' => 0,
+            ];
+        }
+
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        $result = (new Query())
+            ->select([
+                'SUM([[milestone25]]) as m25',
+                'SUM([[milestone50]]) as m50',
+                'SUM([[milestone75]]) as m75',
+                'SUM([[milestone100]]) as m100',
+            ])
+            ->from(Constants::TABLE_SCROLL_DEPTH)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->one();
+
+        $m25 = (int)($result['m25'] ?? 0);
+        $m50 = (int)($result['m50'] ?? 0);
+        $m75 = (int)($result['m75'] ?? 0);
+        $m100 = (int)($result['m100'] ?? 0);
+
+        // Calculate weighted average (each milestone contributes its percentage)
+        $totalEvents = $m25 + $m50 + $m75 + $m100;
+        $avgScrollDepth = 0;
+        if ($totalEvents > 0) {
+            $weightedSum = ($m25 * 25) + ($m50 * 50) + ($m75 * 75) + ($m100 * 100);
+            $avgScrollDepth = round($weightedSum / $totalEvents, 1);
+        }
+
+        return [
+            'avgScrollDepth' => $avgScrollDepth,
+            'milestone25' => $m25,
+            'milestone50' => $m50,
+            'milestone75' => $m75,
+            'milestone100' => $m100,
+        ];
+    }
+
+    /**
+     * Get pages per session statistics.
+     *
+     * Lite: Returns just the average number
+     * Pro: Returns average with trend comparison
+     *
+     * @return array{avgPagesPerSession: float, avgPagesPerSessionTrend: float|null}
+     */
+    public function getPagesPerSession(int $siteId, string $range): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        $current = (new Query())
+            ->select(['AVG([[pageCount]]) as avg'])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->scalar();
+
+        $avgPagesPerSession = round((float)($current ?? 0), 2);
+
+        // Calculate trend only for Pro
+        $trend = null;
+        if (Insights::getInstance()->isPro()) {
+            [$prevStartDate, $prevEndDate] = $this->getPreviousDateRange($range);
+
+            $previous = (new Query())
+                ->select(['AVG([[pageCount]]) as avg'])
+                ->from(Constants::TABLE_SESSIONS)
+                ->where(['siteId' => $siteId])
+                ->andWhere(['>=', 'date', $prevStartDate])
+                ->andWhere(['<=', 'date', $prevEndDate])
+                ->scalar();
+
+            $prevAvg = (float)($previous ?? 0);
+            if ($prevAvg > 0) {
+                $trend = round((($avgPagesPerSession - $prevAvg) / $prevAvg) * 100, 1);
+            } else {
+                $trend = 0;
+            }
+        }
+
+        return [
+            'avgPagesPerSession' => $avgPagesPerSession,
+            'avgPagesPerSessionTrend' => $trend,
+        ];
+    }
+
+    /**
+     * Get top entry pages (first page of session).
+     *
+     * Lite: Returns limited preview (3 rows)
+     * Pro: Returns full data
+     *
+     * @return array<int, array{url: string, sessions: int}>
+     */
+    public function getTopEntryPages(int $siteId, string $range, int $limit = 10): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        // Lite users get limited preview
+        if (!Insights::getInstance()->isPro()) {
+            $limit = 3;
+        }
+
+        return (new Query())
+            ->select([
+                'entryUrl as url',
+                'COUNT(*) as sessions',
+            ])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['entryUrl'])
+            ->orderBy(['sessions' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get top exit pages (last page of session).
+     *
+     * Lite: Returns limited preview (3 rows)
+     * Pro: Returns full data
+     *
+     * @return array<int, array{url: string, sessions: int}>
+     */
+    public function getTopExitPages(int $siteId, string $range, int $limit = 10): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        // Lite users get limited preview
+        if (!Insights::getInstance()->isPro()) {
+            $limit = 3;
+        }
+
+        return (new Query())
+            ->select([
+                'exitUrl as url',
+                'COUNT(*) as sessions',
+            ])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['not', ['exitUrl' => null]])
+            ->groupBy(['exitUrl'])
+            ->orderBy(['sessions' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    /**
+     * Get total sessions count for a date range.
+     *
+     * @return int
+     */
+    public function getSessionsCount(int $siteId, string $range): int
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (int)(new Query())
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->count();
+    }
+
+    /**
+     * Get preview data for scroll depth (no Pro check, limited rows).
+     *
+     * @return array<int, array{url: string, milestone25: int, milestone50: int, milestone75: int, milestone100: int}>
+     */
+    public function getPreviewScrollDepth(int $siteId, string $range, int $limit = 3): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+
+        return (new Query())
+            ->select([
+                'url',
+                'SUM([[milestone25]]) as milestone25',
+                'SUM([[milestone50]]) as milestone50',
+                'SUM([[milestone75]]) as milestone75',
+                'SUM([[milestone100]]) as milestone100',
+            ])
+            ->from(Constants::TABLE_SCROLL_DEPTH)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['url'])
+            ->orderBy(['milestone25' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
 }

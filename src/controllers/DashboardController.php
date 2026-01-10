@@ -48,6 +48,11 @@ class DashboardController extends Controller
             'devices' => $stats->getDeviceBreakdown($siteId, $range),
             'browsers' => $stats->getBrowserBreakdown($siteId, $range),
             'realtime' => $stats->getRealtimeVisitors($siteId),
+            'pagesPerSession' => $stats->getPagesPerSession($siteId, $range),
+            'topEntryPages' => $stats->getTopEntryPages($siteId, $range, 10),
+            'topExitPages' => $stats->getTopExitPages($siteId, $range, 10),
+            'scrollDepth' => $isPro ? $stats->getScrollDepth($siteId, $range, 10) : [],
+            'avgScrollDepth' => $isPro ? $stats->getAverageScrollDepth($siteId, $range) : null,
             'selectedSiteId' => $siteId,
             'selectedRange' => $range,
             'settings' => $settings,
@@ -237,8 +242,18 @@ class DashboardController extends Controller
             $data['browsers'] = $stats->getBrowserBreakdown($siteId, $range);
         }
 
+        // Pages per Session (available to all users, trend is Pro-only)
+        if ($user->can(Permission::ViewDashboardKpis->value)) {
+            $data['pagesPerSession'] = $stats->getPagesPerSession($siteId, $range);
+        }
+
         // Pro features
         if ($isPro) {
+            // Entry/Exit Pages
+            if ($user->can(Permission::ViewDashboardEntryExitPages->value)) {
+                $data['topEntryPages'] = $stats->getTopEntryPages($siteId, $range, 10);
+                $data['topExitPages'] = $stats->getTopExitPages($siteId, $range, 10);
+            }
             if ($user->can(Permission::ViewDashboardCampaigns->value)) {
                 $data['topCampaigns'] = $stats->getTopCampaigns($siteId, $range, 10);
             }
@@ -262,6 +277,11 @@ class DashboardController extends Controller
             }
             if ($user->can(Permission::ViewDashboardSearches->value)) {
                 $data['topSearches'] = $stats->getTopSearches($siteId, $range, 10);
+            }
+            // Scroll Depth (Pro-only)
+            if ($user->can(Permission::ViewDashboardScrollDepth->value)) {
+                $data['scrollDepth'] = $stats->getScrollDepth($siteId, $range, 10);
+                $data['avgScrollDepth'] = $stats->getAverageScrollDepth($siteId, $range);
             }
         } else {
             // Preview data for Lite users (row count only, content is placeholder)
@@ -892,6 +912,48 @@ class DashboardController extends Controller
     }
 
     /**
+     * Entry & Exit Pages detail view (Pro only).
+     */
+    public function actionEntryExitPages(): Response
+    {
+        $this->requirePermission(Permission::ViewEntryExitPages->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
+
+        return $this->renderTemplate('insights/entry-exit-pages/_index', [
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
+        ]);
+    }
+
+    /**
+     * Scroll Depth detail view (Pro only).
+     */
+    public function actionScrollDepth(): Response
+    {
+        $this->requirePermission(Permission::ViewScrollDepth->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+        $siteId = $this->resolveSiteId();
+        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
+
+        return $this->renderTemplate('insights/scroll-depth/_index', [
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
+        ]);
+    }
+
+    /**
      * Get searches table data (API endpoint for Vue Admin Table).
      */
     public function actionSearchesTableData(): Response
@@ -972,6 +1034,267 @@ class DashboardController extends Controller
                 'resultsCount' => $searchData['resultsCount'] !== null ? number_format((int)$searchData['resultsCount']) : '-',
                 'searches' => number_format((int)$searchData['searches']),
                 'uniqueVisitors' => number_format((int)$searchData['uniqueVisitors']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Get entry pages table data (API endpoint for Vue Admin Table).
+     */
+    public function actionEntryPagesTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewEntryExitPages->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allEntryPages = $stats->getTopEntryPages($siteId, $range, 1000);
+
+        // Apply search filter
+        if ($search) {
+            $allEntryPages = array_filter($allEntryPages, function($pageData) use ($search) {
+                return stripos($pageData['url'], $search) !== false;
+            });
+            $allEntryPages = array_values($allEntryPages);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allEntryPages, function($a, $b) use ($sortField, $sortDir) {
+                $aVal = match ($sortField) {
+                    'url' => strtolower($a['url']),
+                    'sessions' => (int)$a['sessions'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'url' => strtolower($b['url']),
+                    'sessions' => (int)$b['sessions'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allEntryPages);
+        $offset = ($page - 1) * $limit;
+        $entryPages = array_slice($allEntryPages, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($entryPages as $pageData) {
+            $tableData[] = [
+                'id' => md5('entry_' . $pageData['url']),
+                'title' => $pageData['url'],
+                'url' => $pageData['url'],
+                'sessions' => number_format((int)$pageData['sessions']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Get exit pages table data (API endpoint for Vue Admin Table).
+     */
+    public function actionExitPagesTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewEntryExitPages->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allExitPages = $stats->getTopExitPages($siteId, $range, 1000);
+
+        // Apply search filter
+        if ($search) {
+            $allExitPages = array_filter($allExitPages, function($pageData) use ($search) {
+                return stripos($pageData['url'], $search) !== false;
+            });
+            $allExitPages = array_values($allExitPages);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allExitPages, function($a, $b) use ($sortField, $sortDir) {
+                $aVal = match ($sortField) {
+                    'url' => strtolower($a['url']),
+                    'sessions' => (int)$a['sessions'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'url' => strtolower($b['url']),
+                    'sessions' => (int)$b['sessions'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allExitPages);
+        $offset = ($page - 1) * $limit;
+        $exitPages = array_slice($allExitPages, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($exitPages as $pageData) {
+            $tableData[] = [
+                'id' => md5('exit_' . $pageData['url']),
+                'title' => $pageData['url'],
+                'url' => $pageData['url'],
+                'sessions' => number_format((int)$pageData['sessions']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Get scroll depth table data (API endpoint for Vue Admin Table).
+     */
+    public function actionScrollDepthTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewScrollDepth->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 100);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $stats = Insights::getInstance()->stats;
+        $allScrollDepth = $stats->getScrollDepth($siteId, $range, 1000);
+
+        // Apply search filter
+        if ($search) {
+            $allScrollDepth = array_filter($allScrollDepth, function($pageData) use ($search) {
+                return stripos($pageData['url'], $search) !== false;
+            });
+            $allScrollDepth = array_values($allScrollDepth);
+        }
+
+        // Apply sorting
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $sortField = $sort[0]['field'];
+            $sortDir = $sort[0]['direction'] ?? 'desc';
+
+            usort($allScrollDepth, function($a, $b) use ($sortField, $sortDir) {
+                $aVal = match ($sortField) {
+                    'url' => strtolower($a['url']),
+                    'milestone25' => (int)$a['milestone25'],
+                    'milestone50' => (int)$a['milestone50'],
+                    'milestone75' => (int)$a['milestone75'],
+                    'milestone100' => (int)$a['milestone100'],
+                    default => 0,
+                };
+                $bVal = match ($sortField) {
+                    'url' => strtolower($b['url']),
+                    'milestone25' => (int)$b['milestone25'],
+                    'milestone50' => (int)$b['milestone50'],
+                    'milestone75' => (int)$b['milestone75'],
+                    'milestone100' => (int)$b['milestone100'],
+                    default => 0,
+                };
+
+                if ($aVal === $bVal) {
+                    return 0;
+                }
+
+                $result = $aVal <=> $bVal;
+                return $sortDir === 'asc' ? $result : -$result;
+            });
+        }
+
+        $total = count($allScrollDepth);
+        $offset = ($page - 1) * $limit;
+        $scrollDepth = array_slice($allScrollDepth, $offset, $limit);
+
+        // Format data for the table
+        $tableData = [];
+        foreach ($scrollDepth as $pageData) {
+            $tableData[] = [
+                'id' => md5('scroll_' . $pageData['url']),
+                'title' => $pageData['url'],
+                'url' => $pageData['url'],
+                'milestone25' => number_format((int)$pageData['milestone25']),
+                'milestone50' => number_format((int)$pageData['milestone50']),
+                'milestone75' => number_format((int)$pageData['milestone75']),
+                'milestone100' => number_format((int)$pageData['milestone100']),
             ];
         }
 

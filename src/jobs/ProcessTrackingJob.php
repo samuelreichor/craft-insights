@@ -88,6 +88,12 @@ class ProcessTrackingJob extends BaseJob
                     $this->ip,
                     $this->siteId
                 ),
+                EventType::ScrollDepth => $tracking->processScrollDepth(
+                    $this->data,
+                    $this->userAgent,
+                    $this->ip,
+                    $this->siteId
+                ),
                 default => $logger->warning("Unknown tracking type: {$this->type}"),
             };
             $logger->debug('Queue job completed successfully', ['type' => $this->type]);

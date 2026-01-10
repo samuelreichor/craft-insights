@@ -179,6 +179,20 @@ class Insights extends Plugin
                     'url' => 'insights/searches',
                 ];
             }
+
+            if ($user->can(Permission::ViewEntryExitPages->value)) {
+                $allowedPages['entry-exit-pages'] = [
+                    'label' => Craft::t('insights', 'Entry & Exit Pages'),
+                    'url' => 'insights/entry-exit-pages',
+                ];
+            }
+
+            if ($user->can(Permission::ViewScrollDepth->value)) {
+                $allowedPages['scroll-depth'] = [
+                    'label' => Craft::t('insights', 'Scroll Depth'),
+                    'url' => 'insights/scroll-depth',
+                ];
+            }
         }
 
         // No pages allowed → no menu
@@ -258,6 +272,8 @@ class Insights extends Plugin
                 $event->rules['insights/outbound'] = 'insights/dashboard/outbound';
                 $event->rules['insights/searches'] = 'insights/dashboard/searches';
                 $event->rules['insights/countries'] = 'insights/dashboard/countries';
+                $event->rules['insights/entry-exit-pages'] = 'insights/dashboard/entry-exit-pages';
+                $event->rules['insights/scroll-depth'] = 'insights/dashboard/scroll-depth';
             }
         );
 

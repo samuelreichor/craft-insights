@@ -10,6 +10,7 @@ use samuelreichor\insights\Constants;
 use samuelreichor\insights\enums\DeviceType;
 use samuelreichor\insights\enums\ReferrerType;
 use samuelreichor\insights\enums\ScreenCategory;
+use samuelreichor\insights\enums\ScrollDepthMilestone;
 use samuelreichor\insights\Insights;
 use WhichBrowser\Parser;
 use yii\db\Expression;
@@ -115,6 +116,13 @@ class TrackingService extends Component
         $logger->startTimer('updateRealtime');
         $this->updateRealtime($visitorHash, $url, $siteId);
         $logger->stopTimer('updateRealtime');
+
+        // Track session (for pages per session, entry/exit pages)
+        if (!empty($data['sid'])) {
+            $logger->startTimer('trackSession');
+            $this->trackSession($data, $userAgent, $ip, $siteId);
+            $logger->stopTimer('trackSession');
+        }
 
         $logger->endFeature('Pageview', ['url' => $url, 'isNew' => $isNew]);
     }
@@ -603,5 +611,224 @@ class TrackingService extends Component
         $ttl = strtotime('tomorrow') - time();
 
         return Craft::$app->cache->add($key, 1, $ttl);
+    }
+
+    /**
+     * Process a scroll depth event (Pro feature).
+     *
+     * Tracks scroll milestones at 25%, 50%, 75%, and 100%.
+     * Data is collected for all users but display is Pro-only.
+     *
+     * @param array<string, mixed> $data Tracking data from frontend
+     * @param string $userAgent User agent string
+     * @param string $ip IP address (used transiently for hash, NOT stored)
+     * @param int $siteId Site ID
+     */
+    public function processScrollDepth(array $data, string $userAgent, string $ip, int $siteId): void
+    {
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('ScrollDepth', ['siteId' => $siteId]);
+
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
+        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $percent = (int)($data['depth'] ?? 0);
+
+        // Validate scroll depth percentage
+        if ($percent < 25 || $percent > 100) {
+            $logger->debug('Invalid scroll depth percentage', ['percent' => $percent]);
+            return;
+        }
+
+        $milestone = ScrollDepthMilestone::fromPercent($percent);
+        if (!$milestone) {
+            $logger->debug('No milestone matched for percent', ['percent' => $percent]);
+            return;
+        }
+
+        $logger->step('ScrollDepth', 'Processing', [
+            'url' => $url,
+            'percent' => $percent,
+            'milestone' => $milestone->label(),
+        ]);
+
+        // Generate visitor hash
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
+
+        // Check if this visitor already reached this milestone today
+        if (!$this->isNewScrollMilestone($visitorHash, $url, $milestone, $siteId, $date)) {
+            $logger->debug('Milestone already recorded for this visitor');
+            return;
+        }
+
+        // Find entry ID for this URL
+        $entryId = $this->findEntryByUrl($url, $siteId);
+
+        // Build UPSERT data - increment the specific milestone column
+        $column = $milestone->column();
+
+        $logger->startTimer('upsertScrollDepth');
+        Db::upsert(Constants::TABLE_SCROLL_DEPTH, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'hour' => $hour,
+            'url' => $url,
+            'entryId' => $entryId,
+            'milestone25' => $milestone === ScrollDepthMilestone::Percent25 ? 1 : 0,
+            'milestone50' => $milestone === ScrollDepthMilestone::Percent50 ? 1 : 0,
+            'milestone75' => $milestone === ScrollDepthMilestone::Percent75 ? 1 : 0,
+            'milestone100' => $milestone === ScrollDepthMilestone::Percent100 ? 1 : 0,
+        ], [
+            $column => new Expression("[[{$column}]] + 1"),
+        ]);
+        $logger->stopTimer('upsertScrollDepth');
+
+        $logger->endFeature('ScrollDepth', ['url' => $url, 'milestone' => $milestone->label()]);
+    }
+
+    /**
+     * Check if this is a new scroll milestone for this visitor.
+     *
+     * Uses atomic cache->add() to prevent race conditions.
+     */
+    private function isNewScrollMilestone(
+        string $hash,
+        string $url,
+        ScrollDepthMilestone $milestone,
+        int $siteId,
+        string $date,
+    ): bool {
+        $key = Constants::CACHE_VISITOR . "sd_{$siteId}_{$date}_{$hash}_{$milestone->value}_" . md5($url);
+
+        // Cache until midnight - add() is atomic and returns false if key exists
+        $ttl = strtotime('tomorrow') - time();
+
+        return Craft::$app->cache->add($key, 1, $ttl);
+    }
+
+    /**
+     * Track or update a visitor's session.
+     *
+     * Sessions are tracked to calculate pages per session, entry pages, and exit pages.
+     * A session expires after 30 minutes of inactivity.
+     *
+     * @param array<string, mixed> $data Tracking data from frontend
+     * @param string $userAgent User agent string
+     * @param string $ip IP address (used transiently for hash, NOT stored)
+     * @param int $siteId Site ID
+     */
+    public function trackSession(array $data, string $userAgent, string $ip, int $siteId): void
+    {
+        $logger = Insights::getInstance()->logger;
+        $logger->beginFeature('Session', ['siteId' => $siteId]);
+
+        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
+        $sessionId = $data['sid'] ?? '';
+        $isNewPage = (bool)($data['np'] ?? true);
+
+        if (empty($sessionId)) {
+            $logger->debug('No session ID provided');
+            return;
+        }
+
+        // Generate visitor hash
+        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
+
+        // Find entry ID for this URL
+        $entryId = $this->findEntryByUrl($url, $siteId);
+
+        $now = date('Y-m-d H:i:s');
+        $date = date('Y-m-d');
+
+        // Try to find existing session
+        $logger->startTimer('findSession');
+        $existingSession = (new \craft\db\Query())
+            ->select(['id', 'pageCount', 'entryUrl', 'entryEntryId', 'lastActivityTime'])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where([
+                'siteId' => $siteId,
+                'visitorHash' => $visitorHash,
+                'sessionId' => $sessionId,
+            ])
+            ->one();
+        $logger->stopTimer('findSession');
+
+        if ($existingSession) {
+            // Check if session has timed out (30 minutes)
+            $lastActivity = strtotime($existingSession['lastActivityTime']);
+            $timeout = Constants::SESSION_TIMEOUT;
+
+            if (time() - $lastActivity > $timeout) {
+                // Session timed out - create a new one with same sessionId but new date
+                $logger->step('Session', 'Session timed out, creating new');
+                $this->createNewSession($siteId, $visitorHash, $sessionId, $url, $entryId, $date, $now);
+            } else {
+                // Update existing session
+                $logger->startTimer('updateSession');
+                $updateData = [
+                    'exitUrl' => $url,
+                    'exitEntryId' => $entryId,
+                    'lastActivityTime' => $now,
+                ];
+
+                // Only increment page count for new pages
+                if ($isNewPage) {
+                    $updateData['pageCount'] = new Expression('[[pageCount]] + 1');
+                }
+
+                Craft::$app->db->createCommand()
+                    ->update(Constants::TABLE_SESSIONS, $updateData, ['id' => $existingSession['id']])
+                    ->execute();
+                $logger->stopTimer('updateSession');
+
+                $logger->step('Session', 'Updated existing session', [
+                    'pageCount' => $existingSession['pageCount'] + ($isNewPage ? 1 : 0),
+                ]);
+            }
+        } else {
+            // Create new session
+            $this->createNewSession($siteId, $visitorHash, $sessionId, $url, $entryId, $date, $now);
+        }
+
+        $logger->endFeature('Session', ['url' => $url, 'sessionId' => $sessionId]);
+    }
+
+    /**
+     * Create a new session record.
+     */
+    private function createNewSession(
+        int $siteId,
+        string $visitorHash,
+        string $sessionId,
+        string $entryUrl,
+        ?int $entryId,
+        string $date,
+        string $now,
+    ): void {
+        $logger = Insights::getInstance()->logger;
+        $logger->startTimer('createSession');
+
+        Db::upsert(Constants::TABLE_SESSIONS, [
+            'siteId' => $siteId,
+            'date' => $date,
+            'visitorHash' => $visitorHash,
+            'sessionId' => $sessionId,
+            'pageCount' => 1,
+            'entryUrl' => $entryUrl,
+            'entryEntryId' => $entryId,
+            'exitUrl' => $entryUrl,
+            'exitEntryId' => $entryId,
+            'startTime' => $now,
+            'lastActivityTime' => $now,
+        ], [
+            // On conflict, treat as session continuation (same visitor, same sessionId)
+            'pageCount' => new Expression('[[pageCount]] + 1'),
+            'exitUrl' => $entryUrl,
+            'exitEntryId' => $entryId,
+            'lastActivityTime' => $now,
+        ]);
+
+        $logger->stopTimer('createSession');
+        $logger->step('Session', 'Created new session');
     }
 }

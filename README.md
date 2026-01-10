@@ -37,6 +37,8 @@
 - **Custom Events** (Pro): Track clicks, form submissions, and downloads
 - **Outbound Link Tracking** (Pro): See which external links users click
 - **Site Search Analytics** (Pro): Understand what visitors are searching for
+- **Scroll Depth Tracking** (Pro): See how far users scroll on each page
+- **Session Insights** (Pro): Entry/exit pages and pages per session analytics
 
 ## Requirements
 

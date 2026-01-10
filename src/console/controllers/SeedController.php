@@ -54,6 +54,10 @@ class SeedController extends Controller
         $this->seedDevices($siteId);
         $this->seedCountries($siteId);
         $this->seedEvents($siteId);
+        $this->seedOutbound($siteId);
+        $this->seedSearches($siteId);
+        $this->seedScrollDepth($siteId);
+        $this->seedSessions($siteId);
 
         $this->stdout("\nDemo data seeded successfully!\n\n");
 
@@ -392,6 +396,311 @@ class SeedController extends Controller
         }
 
         $this->stdout(" {$count} records\n");
+    }
+
+    private function seedOutbound(int $siteId): void
+    {
+        $this->stdout("  Seeding outbound links...");
+
+        $outboundLinks = [
+            ['domain' => 'github.com', 'url' => 'https://github.com/craftcms', 'source' => '/about', 'weight' => 20],
+            ['domain' => 'github.com', 'url' => 'https://github.com/craftcms/cms', 'source' => '/docs', 'weight' => 15],
+            ['domain' => 'twitter.com', 'url' => 'https://twitter.com/craftcms', 'source' => '/', 'weight' => 12],
+            ['domain' => 'youtube.com', 'url' => 'https://youtube.com/watch?v=abc123', 'source' => '/blog/article-1', 'weight' => 18],
+            ['domain' => 'stackoverflow.com', 'url' => 'https://stackoverflow.com/questions/craft', 'source' => '/faq', 'weight' => 10],
+            ['domain' => 'packagist.org', 'url' => 'https://packagist.org/packages/craftcms', 'source' => '/docs', 'weight' => 8],
+            ['domain' => 'docs.craftcms.com', 'url' => 'https://docs.craftcms.com', 'source' => '/resources', 'weight' => 25],
+            ['domain' => 'plugins.craftcms.com', 'url' => 'https://plugins.craftcms.com', 'source' => '/products', 'weight' => 14],
+        ];
+
+        $db = Craft::$app->getDb();
+        $count = 0;
+
+        for ($d = $this->days; $d >= 0; $d--) {
+            $date = date('Y-m-d', strtotime("-{$d} days"));
+            $weekendFactor = in_array(date('N', strtotime($date)), [6, 7]) ? 0.6 : 1.0;
+
+            foreach ($outboundLinks as $link) {
+                $randomFactor = mt_rand(60, 140) / 100;
+                $clicks = (int)round($link['weight'] * $weekendFactor * $randomFactor);
+                $uniqueVisitors = (int)round($clicks * (mt_rand(60, 85) / 100));
+
+                if ($clicks > 0) {
+                    for ($h = 0; $h < 24; $h++) {
+                        $hourFactor = $this->getHourFactor($h);
+                        $hourClicks = (int)round($clicks * $hourFactor);
+
+                        if ($hourClicks > 0) {
+                            $urlHash = md5($link['url'] . $link['source']);
+                            $db->createCommand()->upsert(
+                                Constants::TABLE_OUTBOUND,
+                                [
+                                    'siteId' => $siteId,
+                                    'date' => $date,
+                                    'hour' => $h,
+                                    'urlHash' => $urlHash,
+                                    'targetUrl' => $link['url'],
+                                    'targetDomain' => $link['domain'],
+                                    'sourceUrl' => $link['source'],
+                                    'clicks' => $hourClicks,
+                                    'uniqueVisitors' => (int)round($hourClicks * 0.75),
+                                ],
+                                [
+                                    'clicks' => $hourClicks,
+                                    'uniqueVisitors' => (int)round($hourClicks * 0.75),
+                                ]
+                            )->execute();
+                            $count++;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->stdout(" {$count} records\n");
+    }
+
+    private function seedSearches(int $siteId): void
+    {
+        $this->stdout("  Seeding site searches...");
+
+        $searches = [
+            ['term' => 'pricing', 'weight' => 30],
+            ['term' => 'contact', 'weight' => 25],
+            ['term' => 'documentation', 'weight' => 22],
+            ['term' => 'api', 'weight' => 18],
+            ['term' => 'getting started', 'weight' => 20],
+            ['term' => 'installation', 'weight' => 15],
+            ['term' => 'plugins', 'weight' => 16],
+            ['term' => 'support', 'weight' => 12],
+            ['term' => 'login', 'weight' => 14],
+            ['term' => 'upgrade', 'weight' => 10],
+            ['term' => 'tutorial', 'weight' => 8],
+            ['term' => 'examples', 'weight' => 9],
+        ];
+
+        $db = Craft::$app->getDb();
+        $count = 0;
+
+        for ($d = $this->days; $d >= 0; $d--) {
+            $date = date('Y-m-d', strtotime("-{$d} days"));
+            $weekendFactor = in_array(date('N', strtotime($date)), [6, 7]) ? 0.5 : 1.0;
+
+            foreach ($searches as $search) {
+                $randomFactor = mt_rand(50, 150) / 100;
+                $searchCount = (int)round($search['weight'] * $weekendFactor * $randomFactor);
+                $uniqueVisitors = (int)round($searchCount * (mt_rand(70, 95) / 100));
+
+                if ($searchCount > 0) {
+                    for ($h = 0; $h < 24; $h++) {
+                        $hourFactor = $this->getHourFactor($h);
+                        $hourSearches = (int)round($searchCount * $hourFactor);
+
+                        if ($hourSearches > 0) {
+                            $db->createCommand()->upsert(
+                                Constants::TABLE_SEARCHES,
+                                [
+                                    'siteId' => $siteId,
+                                    'date' => $date,
+                                    'hour' => $h,
+                                    'searchTerm' => $search['term'],
+                                    'searches' => $hourSearches,
+                                    'uniqueVisitors' => (int)round($hourSearches * 0.8),
+                                    'resultsCount' => mt_rand(1, 50),
+                                ],
+                                [
+                                    'searches' => $hourSearches,
+                                    'uniqueVisitors' => (int)round($hourSearches * 0.8),
+                                ]
+                            )->execute();
+                            $count++;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->stdout(" {$count} records\n");
+    }
+
+    private function seedScrollDepth(int $siteId): void
+    {
+        $this->stdout("  Seeding scroll depth...");
+
+        $pages = [
+            ['url' => '/', 'base25' => 90, 'base50' => 70, 'base75' => 50, 'base100' => 30],
+            ['url' => '/about', 'base25' => 85, 'base50' => 65, 'base75' => 45, 'base100' => 25],
+            ['url' => '/blog', 'base25' => 80, 'base50' => 55, 'base75' => 35, 'base100' => 20],
+            ['url' => '/blog/article-1', 'base25' => 95, 'base50' => 80, 'base75' => 60, 'base100' => 40],
+            ['url' => '/blog/article-2', 'base25' => 92, 'base50' => 75, 'base75' => 55, 'base100' => 35],
+            ['url' => '/blog/article-3', 'base25' => 88, 'base50' => 70, 'base75' => 48, 'base100' => 28],
+            ['url' => '/products', 'base25' => 85, 'base50' => 60, 'base75' => 40, 'base100' => 22],
+            ['url' => '/products/item-1', 'base25' => 90, 'base50' => 72, 'base75' => 55, 'base100' => 38],
+            ['url' => '/pricing', 'base25' => 95, 'base50' => 85, 'base75' => 70, 'base100' => 55],
+            ['url' => '/contact', 'base25' => 88, 'base50' => 75, 'base75' => 60, 'base100' => 45],
+            ['url' => '/faq', 'base25' => 82, 'base50' => 65, 'base75' => 50, 'base100' => 35],
+        ];
+
+        $db = Craft::$app->getDb();
+        $count = 0;
+
+        for ($d = $this->days; $d >= 0; $d--) {
+            $date = date('Y-m-d', strtotime("-{$d} days"));
+            $weekendFactor = in_array(date('N', strtotime($date)), [6, 7]) ? 0.6 : 1.0;
+
+            foreach ($pages as $page) {
+                $randomFactor = mt_rand(70, 130) / 100;
+
+                for ($h = 0; $h < 24; $h++) {
+                    $hourFactor = $this->getHourFactor($h);
+
+                    $milestone25 = (int)round($page['base25'] * $weekendFactor * $randomFactor * $hourFactor);
+                    $milestone50 = (int)round($page['base50'] * $weekendFactor * $randomFactor * $hourFactor);
+                    $milestone75 = (int)round($page['base75'] * $weekendFactor * $randomFactor * $hourFactor);
+                    $milestone100 = (int)round($page['base100'] * $weekendFactor * $randomFactor * $hourFactor);
+
+                    if ($milestone25 > 0) {
+                        $db->createCommand()->upsert(
+                            Constants::TABLE_SCROLL_DEPTH,
+                            [
+                                'siteId' => $siteId,
+                                'date' => $date,
+                                'hour' => $h,
+                                'url' => $page['url'],
+                                'milestone25' => $milestone25,
+                                'milestone50' => $milestone50,
+                                'milestone75' => $milestone75,
+                                'milestone100' => $milestone100,
+                            ],
+                            [
+                                'milestone25' => $milestone25,
+                                'milestone50' => $milestone50,
+                                'milestone75' => $milestone75,
+                                'milestone100' => $milestone100,
+                            ]
+                        )->execute();
+                        $count++;
+                    }
+                }
+            }
+        }
+
+        $this->stdout(" {$count} records\n");
+    }
+
+    private function seedSessions(int $siteId): void
+    {
+        $this->stdout("  Seeding sessions...");
+
+        $entryPages = [
+            ['url' => '/', 'weight' => 40],
+            ['url' => '/blog', 'weight' => 20],
+            ['url' => '/blog/article-1', 'weight' => 12],
+            ['url' => '/products', 'weight' => 15],
+            ['url' => '/pricing', 'weight' => 8],
+            ['url' => '/about', 'weight' => 5],
+        ];
+
+        $exitPages = [
+            ['url' => '/', 'weight' => 15],
+            ['url' => '/contact', 'weight' => 25],
+            ['url' => '/pricing', 'weight' => 20],
+            ['url' => '/blog/article-1', 'weight' => 12],
+            ['url' => '/products/item-1', 'weight' => 18],
+            ['url' => '/faq', 'weight' => 10],
+        ];
+
+        $db = Craft::$app->getDb();
+        $count = 0;
+
+        for ($d = $this->days; $d >= 0; $d--) {
+            $date = date('Y-m-d', strtotime("-{$d} days"));
+            $weekendFactor = in_array(date('N', strtotime($date)), [6, 7]) ? 0.6 : 1.0;
+
+            // Generate multiple sessions per day
+            $sessionsPerDay = (int)round(80 * $weekendFactor * (mt_rand(70, 130) / 100));
+
+            for ($s = 0; $s < $sessionsPerDay; $s++) {
+                $visitorHash = md5("visitor_{$date}_{$s}_" . mt_rand(1000, 9999));
+                $sessionId = substr(md5("session_{$date}_{$s}_" . mt_rand()), 0, 32);
+
+                // Pick random entry and exit pages based on weights
+                $entryPage = $this->pickWeightedRandom($entryPages);
+                $exitPage = $this->pickWeightedRandom($exitPages);
+
+                $pageCount = mt_rand(1, 8);
+                $hour = $this->pickWeightedHour();
+                $startTime = date('Y-m-d H:i:s', strtotime("{$date} {$hour}:00:00") + mt_rand(0, 3599));
+                $lastActivityTime = date('Y-m-d H:i:s', strtotime($startTime) + ($pageCount * mt_rand(30, 180)));
+
+                $db->createCommand()->upsert(
+                    Constants::TABLE_SESSIONS,
+                    [
+                        'siteId' => $siteId,
+                        'visitorHash' => $visitorHash,
+                        'sessionId' => $sessionId,
+                        'date' => $date,
+                        'pageCount' => $pageCount,
+                        'entryUrl' => $entryPage['url'],
+                        'exitUrl' => $exitPage['url'],
+                        'startTime' => $startTime,
+                        'lastActivityTime' => $lastActivityTime,
+                    ],
+                    [
+                        'pageCount' => $pageCount,
+                        'exitUrl' => $exitPage['url'],
+                        'lastActivityTime' => $lastActivityTime,
+                    ]
+                )->execute();
+                $count++;
+            }
+        }
+
+        $this->stdout(" {$count} records\n");
+    }
+
+    /**
+     * Pick a random item based on weights.
+     *
+     * @param array<int, array{url: string, weight: int}> $items
+     * @return array{url: string, weight: int}
+     */
+    private function pickWeightedRandom(array $items): array
+    {
+        $totalWeight = array_sum(array_column($items, 'weight'));
+        $random = mt_rand(1, $totalWeight);
+
+        foreach ($items as $item) {
+            $random -= $item['weight'];
+            if ($random <= 0) {
+                return $item;
+            }
+        }
+
+        return $items[0];
+    }
+
+    /**
+     * Pick a random hour weighted by traffic distribution.
+     */
+    private function pickWeightedHour(): int
+    {
+        $factors = [];
+        for ($h = 0; $h < 24; $h++) {
+            $factors[$h] = $this->getHourFactor($h);
+        }
+
+        $totalWeight = array_sum($factors);
+        $random = mt_rand(1, (int)($totalWeight * 100)) / 100;
+
+        foreach ($factors as $hour => $factor) {
+            $random -= $factor;
+            if ($random <= 0) {
+                return $hour;
+            }
+        }
+
+        return 12;
     }
 
     /**

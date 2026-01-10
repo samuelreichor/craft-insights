@@ -10,6 +10,42 @@
     var startTime = Date.now();
     var engaged = false;
 
+    // Session tracking
+    var sessionId = getOrCreateSessionId();
+    var isNewPage = true;
+
+    // Scroll depth tracking - milestones reached on current page
+    var scrollMilestonesReached = { 25: false, 50: false, 75: false, 100: false };
+
+    /**
+     * Generate a random session ID (32 characters)
+     */
+    function generateSessionId() {
+        var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        var id = '';
+        for (var i = 0; i < 32; i++) {
+            id += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return id;
+    }
+
+    /**
+     * Get or create session ID from sessionStorage
+     */
+    function getOrCreateSessionId() {
+        try {
+            var sid = sessionStorage.getItem('insights_sid');
+            if (!sid) {
+                sid = generateSessionId();
+                sessionStorage.setItem('insights_sid', sid);
+            }
+            return sid;
+        } catch (e) {
+            // sessionStorage not available, generate a new one each page
+            return generateSessionId();
+        }
+    }
+
     /**
      * Get URL parameter by name
      */
@@ -60,7 +96,9 @@
                 t: getParam('utm_term'),
                 n: getParam('utm_content')
             },
-            sc: getScreenCategory()
+            sc: getScreenCategory(),
+            sid: sessionId,
+            np: isNewPage
         };
     }
 
@@ -243,11 +281,84 @@
     }
 
     /**
+     * Track scroll depth (Pro feature)
+     *
+     * Tracks milestones at 25%, 50%, 75%, and 100%
+     */
+    function trackScrollDepth(percent) {
+        // Determine which milestone this scroll depth corresponds to
+        var milestones = [25, 50, 75, 100];
+        for (var i = 0; i < milestones.length; i++) {
+            var milestone = milestones[i];
+            if (percent >= milestone && !scrollMilestonesReached[milestone]) {
+                scrollMilestonesReached[milestone] = true;
+                track('sd', { depth: milestone });
+            }
+        }
+    }
+
+    /**
+     * Get current scroll percentage
+     */
+    function getScrollPercent() {
+        var docHeight = Math.max(
+            document.body.scrollHeight,
+            document.body.offsetHeight,
+            document.documentElement.clientHeight,
+            document.documentElement.scrollHeight,
+            document.documentElement.offsetHeight
+        );
+        var windowHeight = window.innerHeight || document.documentElement.clientHeight;
+        var scrollTop = window.scrollY || document.documentElement.scrollTop;
+
+        var scrollableHeight = docHeight - windowHeight;
+        if (scrollableHeight <= 0) {
+            return 100; // No scroll needed, page is shorter than viewport
+        }
+
+        return Math.round((scrollTop / scrollableHeight) * 100);
+    }
+
+    /**
+     * Setup scroll depth tracking
+     */
+    function setupScrollDepthTracking() {
+        var scrollHandler = function() {
+            var percent = getScrollPercent();
+            trackScrollDepth(percent);
+
+            // Remove listener once all milestones reached
+            if (scrollMilestonesReached[100]) {
+                window.removeEventListener('scroll', scrollHandler);
+            }
+        };
+
+        window.addEventListener('scroll', scrollHandler, { passive: true });
+
+        // Also check initial scroll position (in case page loads scrolled)
+        setTimeout(function() {
+            var percent = getScrollPercent();
+            trackScrollDepth(percent);
+        }, 100);
+    }
+
+    /**
+     * Reset scroll tracking for SPA navigation
+     */
+    function resetScrollTracking() {
+        scrollMilestonesReached = { 25: false, 50: false, 75: false, 100: false };
+        setupScrollDepthTracking();
+    }
+
+    /**
      * Initialize tracking
      */
     function init() {
         // Track initial pageview
         track('pv');
+
+        // Mark as no longer a new page after first pageview
+        isNewPage = false;
 
         // Setup automatic event tracking for data-insights-event elements
         setupAutoEventTracking();
@@ -255,15 +366,18 @@
         // Setup automatic outbound link tracking
         setupOutboundTracking();
 
+        // Setup scroll depth tracking (Pro feature)
+        setupScrollDepthTracking();
+
         // Track engagement on scroll (> 25% of page)
-        var scrollHandler = function() {
+        var engageScrollHandler = function() {
             var scrollPercent = window.scrollY / (document.body.scrollHeight - window.innerHeight);
             if (scrollPercent > 0.25) {
                 markEngaged();
-                window.removeEventListener('scroll', scrollHandler);
+                window.removeEventListener('scroll', engageScrollHandler);
             }
         };
-        window.addEventListener('scroll', scrollHandler, { passive: true });
+        window.addEventListener('scroll', engageScrollHandler, { passive: true });
 
         // Track engagement on click
         window.addEventListener('click', function() {
@@ -307,10 +421,15 @@
                 startTime = Date.now();
                 engaged = false;
                 leaveSent = false;
+                isNewPage = true;
+
+                // Reset scroll depth tracking for new page
+                resetScrollTracking();
 
                 // Track new pageview after a short delay
                 setTimeout(function() {
                     track('pv');
+                    isNewPage = false;
                 }, 10);
             };
         }

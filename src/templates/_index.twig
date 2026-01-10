@@ -255,7 +255,9 @@
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Top Countries'|t('insights') }}</h2>
-                {% if plugin('insights').is('pro') and currentUser.can('insights:viewCountries') %}
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewCountries') %}
                 <a href="{{ cpUrl('insights/countries', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
                 {% endif %}
             </div>
@@ -310,7 +312,225 @@
                     <div class="insights-preview-overlay">
                         <div class="insights-preview-lock">
                             <span class="insights-lock-icon">🔒</span>
-                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Session Insights (Combined Widget) #}
+        {% if currentUser.can('insights:viewDashboardEntryExitPages') %}
+        <div class="insights-table-container insights-session-widget">
+            <div class="insights-table-header">
+                <h2>{{ 'Session Insights'|t('insights') }}</h2>
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewEntryExitPages') %}
+                <a href="{{ cpUrl('insights/entry-exit-pages', { siteId: selectedSiteId, range: selectedRange }) }}" class="insights-view-all">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+
+            {% if plugin('insights').is('pro') %}
+                {# Pages per Session KPI #}
+                <div class="insights-session-kpi" data-kpi="pagesPerSession">
+                    <div class="insights-session-kpi-main">
+                        <span class="insights-session-kpi-value">{{ pagesPerSession.avgPagesPerSession }}</span>
+                        <span class="insights-session-kpi-label">{{ 'Pages / Session'|t('insights') }}</span>
+                    </div>
+                    {% if pagesPerSession.avgPagesPerSessionTrend is not null %}
+                    <div class="insights-session-kpi-trend {{ pagesPerSession.avgPagesPerSessionTrend >= 0 ? 'positive' : 'negative' }}">
+                        {% if pagesPerSession.avgPagesPerSessionTrend >= 0 %}
+                            <span>&#8593;</span>
+                        {% else %}
+                            <span>&#8595;</span>
+                        {% endif %}
+                        {{ pagesPerSession.avgPagesPerSessionTrend|abs }}%
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# Entry/Exit Pages Side by Side #}
+                <div class="insights-entry-exit-tables">
+                    <div class="insights-entry-exit-col">
+                        <h4>{{ 'Entry Pages'|t('insights') }}</h4>
+                        {% if topEntryPages|length %}
+                        <table class="insights-table insights-table-compact" id="table-entry-pages">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'Page'|t('insights') }}</th>
+                                    <th class="number">{{ 'Sessions'|t('insights') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for page in topEntryPages|slice(0, 5) %}
+                                <tr>
+                                    <td class="url" title="{{ page.url }}">{{ page.url }}</td>
+                                    <td class="number">{{ page.sessions|number_format }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="insights-empty-small">
+                            <p>{{ 'No data yet'|t('insights') }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="insights-entry-exit-col">
+                        <h4>{{ 'Exit Pages'|t('insights') }}</h4>
+                        {% if topExitPages|length %}
+                        <table class="insights-table insights-table-compact" id="table-exit-pages">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'Page'|t('insights') }}</th>
+                                    <th class="number">{{ 'Sessions'|t('insights') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for page in topExitPages|slice(0, 5) %}
+                                <tr>
+                                    <td class="url" title="{{ page.url }}">{{ page.url }}</td>
+                                    <td class="number">{{ page.sessions|number_format }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="insights-empty-small">
+                            <p>{{ 'No data yet'|t('insights') }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                {# Lite Preview #}
+                <div class="insights-preview-wrapper">
+                    <div class="insights-session-kpi">
+                        <div class="insights-session-kpi-main">
+                            <span class="insights-session-kpi-value">--</span>
+                            <span class="insights-session-kpi-label">{{ 'Pages / Session'|t('insights') }}</span>
+                        </div>
+                    </div>
+                    <div class="insights-entry-exit-tables insights-blurred" aria-hidden="true">
+                        <div class="insights-entry-exit-col">
+                            <h4>{{ 'Entry Pages'|t('insights') }}</h4>
+                            <table class="insights-table insights-table-compact">
+                                <thead><tr><th>{{ 'Page'|t('insights') }}</th><th class="number">{{ 'Sessions'|t('insights') }}</th></tr></thead>
+                                <tbody>
+                                    <tr><td>/home</td><td class="number">---</td></tr>
+                                    <tr><td>/landing</td><td class="number">---</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="insights-entry-exit-col">
+                            <h4>{{ 'Exit Pages'|t('insights') }}</h4>
+                            <table class="insights-table insights-table-compact">
+                                <thead><tr><th>{{ 'Page'|t('insights') }}</th><th class="number">{{ 'Sessions'|t('insights') }}</th></tr></thead>
+                                <tbody>
+                                    <tr><td>/checkout</td><td class="number">---</td></tr>
+                                    <tr><td>/contact</td><td class="number">---</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
+                        </div>
+                        <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Scroll Depth (Pro only) #}
+        {% if currentUser.can('insights:viewDashboardScrollDepth') %}
+        <div class="insights-table-container">
+            <div class="insights-table-header">
+                <h2>{{ 'Scroll Depth'|t('insights') }}</h2>
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewScrollDepth') %}
+                <a href="{{ cpUrl('insights/scroll-depth', { siteId: selectedSiteId, range: selectedRange }) }}" class="insights-view-all">{{ 'View all'|t('insights') }}</a>
+                {% endif %}
+            </div>
+            {% if plugin('insights').is('pro') %}
+                {% if scrollDepth|length %}
+                {# Average Scroll Depth KPI #}
+                {% if avgScrollDepth %}
+                <div class="insights-scroll-depth-summary">
+                    <div class="insights-scroll-kpi">
+                        <span class="insights-scroll-kpi-value">{{ avgScrollDepth.avgScrollDepth }}%</span>
+                        <span class="insights-scroll-kpi-label">{{ 'Avg. Scroll Depth'|t('insights') }}</span>
+                    </div>
+                    <div class="insights-scroll-milestones">
+                        <div class="milestone">
+                            <span class="milestone-label">25%</span>
+                            <span class="milestone-value">{{ avgScrollDepth.milestone25|number_format }}</span>
+                        </div>
+                        <div class="milestone">
+                            <span class="milestone-label">50%</span>
+                            <span class="milestone-value">{{ avgScrollDepth.milestone50|number_format }}</span>
+                        </div>
+                        <div class="milestone">
+                            <span class="milestone-label">75%</span>
+                            <span class="milestone-value">{{ avgScrollDepth.milestone75|number_format }}</span>
+                        </div>
+                        <div class="milestone">
+                            <span class="milestone-label">100%</span>
+                            <span class="milestone-value">{{ avgScrollDepth.milestone100|number_format }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                <table class="insights-table" id="table-scroll-depth">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Page'|t('insights') }}</th>
+                            <th class="number">25%</th>
+                            <th class="number">50%</th>
+                            <th class="number">75%</th>
+                            <th class="number">100%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for page in scrollDepth %}
+                        <tr>
+                            <td class="url" title="{{ page.url }}">{{ page.url }}</td>
+                            <td class="number">{{ page.milestone25|number_format }}</td>
+                            <td class="number">{{ page.milestone50|number_format }}</td>
+                            <td class="number">{{ page.milestone75|number_format }}</td>
+                            <td class="number">{{ page.milestone100|number_format }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="insights-empty">
+                    <p>{{ 'No scroll depth data yet'|t('insights') }}</p>
+                    <p class="insights-muted">{{ 'Scroll depth is tracked automatically at 25%, 50%, 75%, and 100%.'|t('insights') }}</p>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="insights-preview-wrapper">
+                    <div class="insights-scroll-depth-summary insights-blurred">
+                        <div class="insights-scroll-kpi">
+                            <span class="insights-scroll-kpi-value">---%</span>
+                            <span class="insights-scroll-kpi-label">{{ 'Avg. Scroll Depth'|t('insights') }}</span>
+                        </div>
+                        <div class="insights-scroll-milestones">
+                            <div class="milestone"><span class="milestone-label">25%</span><span class="milestone-value">---</span></div>
+                            <div class="milestone"><span class="milestone-label">50%</span><span class="milestone-value">---</span></div>
+                            <div class="milestone"><span class="milestone-label">75%</span><span class="milestone-value">---</span></div>
+                            <div class="milestone"><span class="milestone-label">100%</span><span class="milestone-value">---</span></div>
+                        </div>
+                    </div>
+                    <div class="insights-preview-overlay">
+                        <div class="insights-preview-lock">
+                            <span class="insights-lock-icon">🔒</span>
                         </div>
                         <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
                     </div>
@@ -324,7 +544,9 @@
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Campaigns'|t('insights') }}</h2>
-                {% if plugin('insights').is('pro') and currentUser.can('insights:viewCampaigns') %}
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewCampaigns') %}
                 <a href="{{ cpUrl('insights/campaigns', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
                 {% endif %}
             </div>
@@ -383,7 +605,6 @@
                     <div class="insights-preview-overlay">
                         <div class="insights-preview-lock">
                             <span class="insights-lock-icon">🔒</span>
-                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
                         </div>
                         <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
                     </div>
@@ -397,7 +618,9 @@
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Top Events'|t('insights') }}</h2>
-                {% if plugin('insights').is('pro') and currentUser.can('insights:viewEvents') %}
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewEvents') %}
                 <a href="{{ cpUrl('insights/events', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
                 {% endif %}
             </div>
@@ -462,7 +685,6 @@
                     <div class="insights-preview-overlay">
                         <div class="insights-preview-lock">
                             <span class="insights-lock-icon">🔒</span>
-                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
                         </div>
                         <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
                     </div>
@@ -476,7 +698,9 @@
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Outbound Links'|t('insights') }}</h2>
-                {% if plugin('insights').is('pro') and currentUser.can('insights:viewOutbound') %}
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewOutbound') %}
                 <a href="{{ cpUrl('insights/outbound', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
                 {% endif %}
             </div>
@@ -532,7 +756,6 @@
                     <div class="insights-preview-overlay">
                         <div class="insights-preview-lock">
                             <span class="insights-lock-icon">🔒</span>
-                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
                         </div>
                         <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
                     </div>
@@ -546,7 +769,9 @@
         <div class="insights-table-container">
             <div class="insights-table-header">
                 <h2>{{ 'Site Searches'|t('insights') }}</h2>
-                {% if plugin('insights').is('pro') and currentUser.can('insights:viewSearches') %}
+                {% if not plugin('insights').is('pro') %}
+                <span class="insights-badge-pro">Pro</span>
+                {% elseif currentUser.can('insights:viewSearches') %}
                 <a href="{{ cpUrl('insights/searches', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
                 {% endif %}
             </div>
@@ -602,7 +827,6 @@
                     <div class="insights-preview-overlay">
                         <div class="insights-preview-lock">
                             <span class="insights-lock-icon">🔒</span>
-                            <span class="insights-lock-text">{{ 'Pro Feature'|t('insights') }}</span>
                         </div>
                         <a href="{{ cpUrl('plugin-store/insights') }}" class="btn">{{ 'Upgrade to unlock'|t('insights') }}</a>
                     </div>

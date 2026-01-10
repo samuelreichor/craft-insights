@@ -22,6 +22,8 @@ enum Permission: string
     case ViewDashboardEvents = 'insights:viewDashboardEvents';
     case ViewDashboardOutbound = 'insights:viewDashboardOutbound';
     case ViewDashboardSearches = 'insights:viewDashboardSearches';
+    case ViewDashboardEntryExitPages = 'insights:viewDashboardEntryExitPages';
+    case ViewDashboardScrollDepth = 'insights:viewDashboardScrollDepth';
 
     // Detail Page Permissions
     case ViewPages = 'insights:viewPages';
@@ -31,6 +33,8 @@ enum Permission: string
     case ViewEvents = 'insights:viewEvents';
     case ViewOutbound = 'insights:viewOutbound';
     case ViewSearches = 'insights:viewSearches';
+    case ViewEntryExitPages = 'insights:viewEntryExitPages';
+    case ViewScrollDepth = 'insights:viewScrollDepth';
 
     // Entry Sidebar
     case ViewEntryStats = 'insights:viewEntryStats';
@@ -55,6 +59,8 @@ enum Permission: string
             self::ViewDashboardEvents => 'View Dashboard Events',
             self::ViewDashboardOutbound => 'View Dashboard Outbound',
             self::ViewDashboardSearches => 'View Dashboard Searches',
+            self::ViewDashboardEntryExitPages => 'View Dashboard Entry & Exit Pages',
+            self::ViewDashboardScrollDepth => 'View Dashboard Scroll Depth',
             // Detail Pages
             self::ViewPages => 'View Pages',
             self::ViewReferrers => 'View Referrers',
@@ -63,6 +69,8 @@ enum Permission: string
             self::ViewEvents => 'View Events',
             self::ViewOutbound => 'View Outbound Links',
             self::ViewSearches => 'View Site Searches',
+            self::ViewEntryExitPages => 'View Entry & Exit Pages',
+            self::ViewScrollDepth => 'View Scroll Depth',
             // Entry Sidebar
             self::ViewEntryStats => 'View Entry Stats',
         };
@@ -97,6 +105,8 @@ enum Permission: string
             self::ViewDashboardEvents,
             self::ViewDashboardOutbound,
             self::ViewDashboardSearches,
+            self::ViewDashboardEntryExitPages,
+            self::ViewDashboardScrollDepth,
         ];
     }
 
@@ -115,6 +125,8 @@ enum Permission: string
             self::ViewEvents,
             self::ViewOutbound,
             self::ViewSearches,
+            self::ViewEntryExitPages,
+            self::ViewScrollDepth,
         ];
     }
 
@@ -132,12 +144,16 @@ enum Permission: string
             self::ViewDashboardEvents,
             self::ViewDashboardOutbound,
             self::ViewDashboardSearches,
+            self::ViewDashboardEntryExitPages,
+            self::ViewDashboardScrollDepth,
             // Pages Pro
             self::ViewCampaigns,
             self::ViewCountries,
             self::ViewEvents,
             self::ViewOutbound,
             self::ViewSearches,
+            self::ViewEntryExitPages,
+            self::ViewScrollDepth,
         ];
     }
 

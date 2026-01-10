@@ -131,6 +131,7 @@ class TrackController extends Controller
                     EventType::Event => $tracking->processEvent($data, $userAgent, $ip, $siteId),
                     EventType::Outbound => $tracking->processOutbound($data, $userAgent, $ip, $siteId),
                     EventType::Search => $tracking->processSearch($data, $userAgent, $ip, $siteId),
+                    EventType::ScrollDepth => $tracking->processScrollDepth($data, $userAgent, $ip, $siteId),
                     default => null,
                 };
                 $logger->debug('Synchronous processing completed');

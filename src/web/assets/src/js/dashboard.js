@@ -139,6 +139,10 @@
                 self.updateTopEvents(data.topEvents);
                 self.updateTopOutbound(data.topOutboundLinks);
                 self.updateTopSearches(data.topSearches);
+                self.updateEntryPages(data.topEntryPages);
+                self.updateExitPages(data.topExitPages);
+                self.updateScrollDepth(data.scrollDepth, data.avgScrollDepth);
+                self.updatePagesPerSession(data.pagesPerSession);
             })
             .catch(function(error) {
                 console.warn('Failed to fetch dashboard data:', error);
@@ -424,6 +428,110 @@
                 html += '</tr>';
             });
             tbody.innerHTML = html;
+        },
+
+        /**
+         * Update entry pages table (limited to 5 items for dashboard widget)
+         */
+        updateEntryPages: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-entry-pages tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.slice(0, 5).forEach(function(page) {
+                html += '<tr>';
+                html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.sessions) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update exit pages table (limited to 5 items for dashboard widget)
+         */
+        updateExitPages: function(data) {
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-exit-pages tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.slice(0, 5).forEach(function(page) {
+                html += '<tr>';
+                html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.sessions) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update scroll depth section
+         */
+        updateScrollDepth: function(data, avgData) {
+            // Update average scroll depth KPI
+            if (avgData) {
+                var avgEl = document.querySelector('.insights-scroll-kpi-value');
+                if (avgEl) {
+                    avgEl.textContent = avgData.avgScrollDepth + '%';
+                }
+
+                // Update milestone totals
+                var milestones = document.querySelectorAll('.insights-scroll-milestones .milestone-value');
+                if (milestones.length === 4) {
+                    milestones[0].textContent = this.formatNumber(avgData.milestone25);
+                    milestones[1].textContent = this.formatNumber(avgData.milestone50);
+                    milestones[2].textContent = this.formatNumber(avgData.milestone75);
+                    milestones[3].textContent = this.formatNumber(avgData.milestone100);
+                }
+            }
+
+            // Update scroll depth table
+            if (!data) return;
+
+            var tbody = document.querySelector('#table-scroll-depth tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            data.forEach(function(page) {
+                html += '<tr>';
+                html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.milestone25) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.milestone50) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.milestone75) + '</td>';
+                html += '<td class="number">' + self.formatNumber(page.milestone100) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+        },
+
+        /**
+         * Update pages per session KPI in Session Insights widget
+         */
+        updatePagesPerSession: function(data) {
+            if (!data) return;
+
+            var kpiEl = document.querySelector('.insights-session-kpi[data-kpi="pagesPerSession"]');
+            if (!kpiEl) return;
+
+            var valueEl = kpiEl.querySelector('.insights-session-kpi-value');
+            if (valueEl) {
+                valueEl.textContent = data.avgPagesPerSession;
+            }
+
+            var trendEl = kpiEl.querySelector('.insights-session-kpi-trend');
+            if (trendEl && data.avgPagesPerSessionTrend !== null && data.avgPagesPerSessionTrend !== undefined) {
+                var trendClass = data.avgPagesPerSessionTrend >= 0 ? 'positive' : 'negative';
+                var arrow = data.avgPagesPerSessionTrend >= 0 ? '\u2191' : '\u2193';
+                trendEl.className = 'insights-session-kpi-trend ' + trendClass;
+                trendEl.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.avgPagesPerSessionTrend) + '%';
+            }
         },
 
         /**

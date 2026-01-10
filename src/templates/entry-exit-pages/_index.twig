@@ -1,0 +1,170 @@
+{% extends '_layouts/cp' %}
+{% import '_includes/forms.twig' as forms %}
+
+{% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
+
+{% set title = 'Entry & Exit Pages'|t('insights') %}
+{% set selectedSubnavItem = 'entry-exit-pages' %}
+
+{# Site Selection via Breadcrumbs #}
+{% set selectableSites = craft.app.sites.getEditableSites() %}
+{% set selectedSite = craft.app.sites.getSiteById(selectedSiteId) %}
+
+{% set crumbs = [] %}
+{% if craft.app.getIsMultiSite() %}
+    {% set crumbs = crumbs|merge([{
+        id: 'site-crumb',
+        icon: 'world',
+        label: selectedSite.name|t('site'),
+        menu: {
+            items: siteMenuItems(selectableSites, selectedSite),
+            label: 'Select site'|t('app')
+        },
+    }]) %}
+{% endif %}
+
+{% block content %}
+<style>
+.insights-dual-tables {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+@media (max-width: 1200px) {
+    .insights-dual-tables {
+        grid-template-columns: 1fr;
+    }
+}
+.insights-table-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+.insights-table-section .export-link {
+    float: right;
+    font-size: 13px;
+}
+</style>
+
+<div class="insights-page">
+    <div class="flex" style="margin-bottom: 24px; gap: 12px; align-items: center;">
+        <div>
+            {{ forms.selectField({
+                id: 'range-select',
+                name: 'range',
+                options: [
+                    { label: 'Today'|t('insights'), value: 'today' },
+                    { label: 'Last 7 Days'|t('insights'), value: '7d' },
+                    { label: 'Last 30 Days'|t('insights'), value: '30d' },
+                    { label: 'Last 90 Days'|t('insights'), value: '90d' },
+                    { label: 'Last 12 Months'|t('insights'), value: '12m' },
+                ],
+                value: selectedRange,
+            }) }}
+        </div>
+    </div>
+
+    <div class="insights-dual-tables">
+        <div class="insights-table-section">
+            <h3>
+                {{ 'Entry Pages'|t('insights') }}
+                <a href="{{ actionUrl('insights/export/entry-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="export-link btn small" id="entry-export">{{ 'Export CSV'|t('insights') }}</a>
+            </h3>
+            <div id="entry-pages-table"></div>
+        </div>
+
+        <div class="insights-table-section">
+            <h3>
+                {{ 'Exit Pages'|t('insights') }}
+                <a href="{{ actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="export-link btn small" id="exit-export">{{ 'Export CSV'|t('insights') }}</a>
+            </h3>
+            <div id="exit-pages-table"></div>
+        </div>
+    </div>
+</div>
+
+{% js %}
+(function() {
+    var siteId = {{ selectedSiteId }};
+    var range = '{{ selectedRange }}';
+
+    function getEntryTableEndpoint() {
+        return Craft.getActionUrl('insights/dashboard/entry-pages-table-data', {
+            siteId: siteId,
+            range: range
+        });
+    }
+
+    function getExitTableEndpoint() {
+        return Craft.getActionUrl('insights/dashboard/exit-pages-table-data', {
+            siteId: siteId,
+            range: range
+        });
+    }
+
+    var entryTable = new Craft.VueAdminTable({
+        columns: [
+            { name: 'url', title: Craft.t('insights', 'Page'), sortField: 'url' },
+            { name: 'sessions', title: Craft.t('insights', 'Sessions'), sortField: 'sessions' }
+        ],
+        container: '#entry-pages-table',
+        tableDataEndpoint: getEntryTableEndpoint(),
+        search: true,
+        searchPlaceholder: Craft.t('insights', 'Search pages...'),
+        emptyMessage: Craft.t('insights', 'No entry page data yet'),
+        perPage: 25,
+        padded: true
+    });
+
+    var exitTable = new Craft.VueAdminTable({
+        columns: [
+            { name: 'url', title: Craft.t('insights', 'Page'), sortField: 'url' },
+            { name: 'sessions', title: Craft.t('insights', 'Sessions'), sortField: 'sessions' }
+        ],
+        container: '#exit-pages-table',
+        tableDataEndpoint: getExitTableEndpoint(),
+        search: true,
+        searchPlaceholder: Craft.t('insights', 'Search pages...'),
+        emptyMessage: Craft.t('insights', 'No exit page data yet'),
+        perPage: 25,
+        padded: true
+    });
+
+    // Handle range filter change
+    var rangeSelect = document.getElementById('range-select');
+
+    function updateTables() {
+        range = rangeSelect.value;
+
+        // Update export links
+        var entryExport = document.getElementById('entry-export');
+        var exitExport = document.getElementById('exit-export');
+
+        if (entryExport) {
+            entryExport.href = Craft.getActionUrl('insights/export/entry-pages', {
+                siteId: siteId,
+                range: range,
+                format: 'csv'
+            });
+        }
+
+        if (exitExport) {
+            exitExport.href = Craft.getActionUrl('insights/export/exit-pages', {
+                siteId: siteId,
+                range: range,
+                format: 'csv'
+            });
+        }
+
+        // Update table endpoints and reload
+        entryTable.settings.tableDataEndpoint = getEntryTableEndpoint();
+        entryTable.reload();
+
+        exitTable.settings.tableDataEndpoint = getExitTableEndpoint();
+        exitTable.reload();
+    }
+
+    rangeSelect.addEventListener('change', updateTables);
+})();
+{% endjs %}
+{% endblock %}

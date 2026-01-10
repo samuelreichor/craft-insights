@@ -1,0 +1,103 @@
+{% extends '_layouts/cp' %}
+{% import '_includes/forms.twig' as forms %}
+
+{% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
+
+{% set title = 'Scroll Depth'|t('insights') %}
+{% set selectedSubnavItem = 'scroll-depth' %}
+
+{# Site Selection via Breadcrumbs #}
+{% set selectableSites = craft.app.sites.getEditableSites() %}
+{% set selectedSite = craft.app.sites.getSiteById(selectedSiteId) %}
+
+{% set crumbs = [] %}
+{% if craft.app.getIsMultiSite() %}
+    {% set crumbs = crumbs|merge([{
+        id: 'site-crumb',
+        icon: 'world',
+        label: selectedSite.name|t('site'),
+        menu: {
+            items: siteMenuItems(selectableSites, selectedSite),
+            label: 'Select site'|t('app')
+        },
+    }]) %}
+{% endif %}
+
+{% block content %}
+<div class="insights-page">
+    <div class="flex" style="margin-bottom: 24px; gap: 12px; align-items: center;">
+        <div>
+            {{ forms.selectField({
+                id: 'range-select',
+                name: 'range',
+                options: [
+                    { label: 'Today'|t('insights'), value: 'today' },
+                    { label: 'Last 7 Days'|t('insights'), value: '7d' },
+                    { label: 'Last 30 Days'|t('insights'), value: '30d' },
+                    { label: 'Last 90 Days'|t('insights'), value: '90d' },
+                    { label: 'Last 12 Months'|t('insights'), value: '12m' },
+                ],
+                value: selectedRange,
+            }) }}
+        </div>
+        <div class="flex-grow"></div>
+        <a href="{{ actionUrl('insights/export/scroll-depth', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn">{{ 'Export CSV'|t('insights') }}</a>
+    </div>
+
+    <div id="scroll-depth-table"></div>
+</div>
+
+{% js %}
+(function() {
+    var siteId = {{ selectedSiteId }};
+    var range = '{{ selectedRange }}';
+
+    function getTableEndpoint() {
+        return Craft.getActionUrl('insights/dashboard/scroll-depth-table-data', {
+            siteId: siteId,
+            range: range
+        });
+    }
+
+    var adminTable = new Craft.VueAdminTable({
+        columns: [
+            { name: 'url', title: Craft.t('insights', 'Page'), sortField: 'url' },
+            { name: 'milestone25', title: '25%', sortField: 'milestone25' },
+            { name: 'milestone50', title: '50%', sortField: 'milestone50' },
+            { name: 'milestone75', title: '75%', sortField: 'milestone75' },
+            { name: 'milestone100', title: '100%', sortField: 'milestone100' }
+        ],
+        container: '#scroll-depth-table',
+        tableDataEndpoint: getTableEndpoint(),
+        search: true,
+        searchPlaceholder: Craft.t('insights', 'Search pages...'),
+        emptyMessage: Craft.t('insights', 'No scroll depth data yet'),
+        perPage: 50,
+        padded: true
+    });
+
+    // Handle range filter change
+    var rangeSelect = document.getElementById('range-select');
+
+    function updateTable() {
+        range = rangeSelect.value;
+
+        // Update export link
+        var exportLink = document.querySelector('a[href*="insights/export"]');
+        if (exportLink) {
+            exportLink.href = Craft.getActionUrl('insights/export/scroll-depth', {
+                siteId: siteId,
+                range: range,
+                format: 'csv'
+            });
+        }
+
+        // Update table endpoint and reload
+        adminTable.settings.tableDataEndpoint = getTableEndpoint();
+        adminTable.reload();
+    }
+
+    rangeSelect.addEventListener('change', updateTable);
+})();
+{% endjs %}
+{% endblock %}

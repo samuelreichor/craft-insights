@@ -20,6 +20,8 @@ final class Constants
     public const TABLE_EVENTS = '{{%insights_events}}';
     public const TABLE_OUTBOUND = '{{%insights_outbound}}';
     public const TABLE_SEARCHES = '{{%insights_searches}}';
+    public const TABLE_SCROLL_DEPTH = '{{%insights_scroll_depth}}';
+    public const TABLE_SESSIONS = '{{%insights_sessions}}';
 
     // Cache Key Prefixes
     public const CACHE_DAILY_SALT = 'insights_salt_';
@@ -34,6 +36,7 @@ final class Constants
     public const MAX_URL_LENGTH = 500;
     public const MAX_TIME_ON_PAGE = 3600; // 1 hour in seconds
     public const CLEANUP_INTERVAL = 86400; // 24 hours in seconds
+    public const SESSION_TIMEOUT = 1800; // 30 minutes in seconds
 
     /**
      * Get all table names as array.
@@ -52,6 +55,8 @@ final class Constants
             self::TABLE_EVENTS,
             self::TABLE_OUTBOUND,
             self::TABLE_SEARCHES,
+            self::TABLE_SCROLL_DEPTH,
+            self::TABLE_SESSIONS,
         ];
     }
 }
