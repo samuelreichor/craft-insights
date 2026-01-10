@@ -407,32 +407,34 @@
             {% else %}
                 {# Lite Preview #}
                 <div class="insights-preview-wrapper">
-                    <div class="insights-session-kpi">
-                        <div class="insights-session-kpi-main">
-                            <span class="insights-session-kpi-value">--</span>
-                            <span class="insights-session-kpi-label">{{ 'Pages / Session'|t('insights') }}</span>
+                    <div class="insights-blurred" aria-hidden="true">
+                        <div class="insights-session-kpi">
+                            <div class="insights-session-kpi-main">
+                                <span class="insights-session-kpi-value">--</span>
+                                <span class="insights-session-kpi-label">{{ 'Pages / Session'|t('insights') }}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="insights-entry-exit-tables insights-blurred" aria-hidden="true">
-                        <div class="insights-entry-exit-col">
-                            <h4>{{ 'Entry Pages'|t('insights') }}</h4>
-                            <table class="insights-table insights-table-compact">
-                                <thead><tr><th>{{ 'Page'|t('insights') }}</th><th class="number">{{ 'Sessions'|t('insights') }}</th></tr></thead>
-                                <tbody>
-                                    <tr><td>/home</td><td class="number">---</td></tr>
-                                    <tr><td>/landing</td><td class="number">---</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="insights-entry-exit-col">
-                            <h4>{{ 'Exit Pages'|t('insights') }}</h4>
-                            <table class="insights-table insights-table-compact">
-                                <thead><tr><th>{{ 'Page'|t('insights') }}</th><th class="number">{{ 'Sessions'|t('insights') }}</th></tr></thead>
-                                <tbody>
-                                    <tr><td>/checkout</td><td class="number">---</td></tr>
-                                    <tr><td>/contact</td><td class="number">---</td></tr>
-                                </tbody>
-                            </table>
+                        <div class="insights-entry-exit-tables">
+                            <div class="insights-entry-exit-col">
+                                <h4>{{ 'Entry Pages'|t('insights') }}</h4>
+                                <table class="insights-table insights-table-compact">
+                                    <thead><tr><th>{{ 'Page'|t('insights') }}</th><th class="number">{{ 'Sessions'|t('insights') }}</th></tr></thead>
+                                    <tbody>
+                                        <tr><td>/home</td><td class="number">---</td></tr>
+                                        <tr><td>/landing</td><td class="number">---</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="insights-entry-exit-col">
+                                <h4>{{ 'Exit Pages'|t('insights') }}</h4>
+                                <table class="insights-table insights-table-compact">
+                                    <thead><tr><th>{{ 'Page'|t('insights') }}</th><th class="number">{{ 'Sessions'|t('insights') }}</th></tr></thead>
+                                    <tbody>
+                                        <tr><td>/checkout</td><td class="number">---</td></tr>
+                                        <tr><td>/contact</td><td class="number">---</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     <div class="insights-preview-overlay">
@@ -509,24 +511,64 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No scroll depth data yet'|t('insights') }}</p>
-                    <p class="insights-muted">{{ 'Scroll depth is tracked automatically at 25%, 50%, 75%, and 100%.'|t('insights') }}</p>
+                <div class="insights-scroll-depth-summary">
+                    <div class="insights-scroll-kpi">
+                        <span class="insights-scroll-kpi-value">--%</span>
+                        <span class="insights-scroll-kpi-label">{{ 'Avg. Scroll Depth'|t('insights') }}</span>
+                    </div>
+                    <div class="insights-scroll-milestones">
+                        <div class="milestone">
+                            <span class="milestone-label">25%</span>
+                            <span class="milestone-value">--</span>
+                        </div>
+                        <div class="milestone">
+                            <span class="milestone-label">50%</span>
+                            <span class="milestone-value">--</span>
+                        </div>
+                        <div class="milestone">
+                            <span class="milestone-label">75%</span>
+                            <span class="milestone-value">--</span>
+                        </div>
+                        <div class="milestone">
+                            <span class="milestone-label">100%</span>
+                            <span class="milestone-value">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="insights-empty-small">
+                    <p>{{ 'No data yet'|t('insights') }}</p>
                 </div>
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">
-                    <div class="insights-scroll-depth-summary insights-blurred">
-                        <div class="insights-scroll-kpi">
-                            <span class="insights-scroll-kpi-value">---%</span>
-                            <span class="insights-scroll-kpi-label">{{ 'Avg. Scroll Depth'|t('insights') }}</span>
+                    <div class="insights-blurred" aria-hidden="true">
+                        <div class="insights-scroll-depth-summary">
+                            <div class="insights-scroll-kpi">
+                                <span class="insights-scroll-kpi-value">--%</span>
+                                <span class="insights-scroll-kpi-label">{{ 'Avg. Scroll Depth'|t('insights') }}</span>
+                            </div>
+                            <div class="insights-scroll-milestones">
+                                <div class="milestone"><span class="milestone-label">25%</span><span class="milestone-value">---</span></div>
+                                <div class="milestone"><span class="milestone-label">50%</span><span class="milestone-value">---</span></div>
+                                <div class="milestone"><span class="milestone-label">75%</span><span class="milestone-value">---</span></div>
+                                <div class="milestone"><span class="milestone-label">100%</span><span class="milestone-value">---</span></div>
+                            </div>
                         </div>
-                        <div class="insights-scroll-milestones">
-                            <div class="milestone"><span class="milestone-label">25%</span><span class="milestone-value">---</span></div>
-                            <div class="milestone"><span class="milestone-label">50%</span><span class="milestone-value">---</span></div>
-                            <div class="milestone"><span class="milestone-label">75%</span><span class="milestone-value">---</span></div>
-                            <div class="milestone"><span class="milestone-label">100%</span><span class="milestone-value">---</span></div>
-                        </div>
+                        <table class="insights-table">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'Page'|t('insights') }}</th>
+                                    <th class="number">25%</th>
+                                    <th class="number">50%</th>
+                                    <th class="number">75%</th>
+                                    <th class="number">100%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>/page-one</td><td class="number">---</td><td class="number">---</td><td class="number">---</td><td class="number">---</td></tr>
+                                <tr><td>/page-two</td><td class="number">---</td><td class="number">---</td><td class="number">---</td><td class="number">---</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                     <div class="insights-preview-overlay">
                         <div class="insights-preview-lock">

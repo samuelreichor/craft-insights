@@ -32,7 +32,7 @@ The plugin registers 6 core services as components in `src/Insights.php`:
 
 | Service | Purpose |
 |---------|---------|
-| `TrackingService` | Main processor for pageview, engagement, and leave events |
+| `TrackingService` | Main processor for all tracking events (pageview, engagement, leave, custom events, outbound, search, scroll depth) |
 | `StatsService` | Analytics queries and aggregation for dashboard |
 | `VisitorService` | GDPR-compliant visitor hash generation (daily rotation) |
 | `GeoIpService` | IP-to-country lookup (IP discarded after lookup) |
@@ -43,13 +43,22 @@ Access services via: `Insights::getInstance()->tracking->processPageview(...)`
 
 ### Database Schema
 
-6 tables store **aggregated data only** (no raw events):
+11 tables store **aggregated data only** (no raw events):
+
+**Core tables (Lite + Pro):**
 - `insights_pageviews` - Page traffic with views, uniqueVisitors, bounces, totalTimeOnPage
 - `insights_referrers` - Traffic sources classified by type (direct, search, social, referral)
 - `insights_campaigns` - UTM parameter tracking
 - `insights_devices` - Browser/OS/device type breakdown
 - `insights_countries` - Geo-location (country codes only)
-- `insights_realtime` - Active visitors with 5-min TTL
+- `insights_realtime` - Active visitors (TTL enforced via CleanupService)
+- `insights_sessions` - Session tracking with entry/exit pages and page counts
+
+**Pro tables:**
+- `insights_events` - Custom event tracking (pv, en, lv counters)
+- `insights_outbound` - Outbound link clicks with target URL tracking
+- `insights_searches` - Site search tracking with query terms and result counts
+- `insights_scroll_depth` - Scroll depth milestones (25%, 50%, 75%, 100%)
 
 Table names are centralized in `src/Constants.php`.
 
@@ -72,12 +81,12 @@ Frontend (insights.js) → POST /actions/insights/track
                    - UPSERT aggregations
 ```
 
-Event types: `pv` (pageview), `en` (engagement), `lv` (leave)
+Event types: `pv` (pageview), `en` (engagement), `lv` (leave), `ev` (custom event), `ob` (outbound), `sr` (search), `sd` (scroll depth)
 
 ### Key Patterns
 
 - **UPSERT Pattern:** Uses `Db::upsert()` for efficient aggregation
-- **Daily Visitor Hash:** Combines daily salt + browser + screen category + language (no fingerprinting)
+- **Daily Visitor Hash:** SHA256(dailySalt + domain + IP + userAgent) - IP is discarded after hash generation
 - **Deferred Initialization:** Auto-cleanup registered via `Craft::$app->onInit()`
 - **Event-Driven:** URL routing, permissions, widgets registered via Craft events in `attachEventHandlers()`
 
@@ -90,11 +99,14 @@ Event types: `pv` (pageview), `en` (engagement), `lv` (leave)
 ### Enums
 
 Located in `src/enums/`:
-- `EventType` - pv, en, lv
-- `DateRange` - today, 7d, 30d, 90d, 12m (with date calculation methods)
+- `EventType` - pv (pageview), en (engagement), lv (leave), ev (event), ob (outbound), sr (search), sd (scroll depth)
+- `DateRange` - today, 7d, 30d, 90d, 12m (with `getStartDate()`, `getEndDate()`, `getDateRange()` methods)
 - `DeviceType` - desktop, mobile, tablet
 - `ReferrerType` - direct, search, social, referral
 - `ScreenCategory` - s (<768px), m (768-1199px), l (≥1200px)
+- `ScrollDepthMilestone` - Percent25, Percent50, Percent75, Percent100
+- `LogLevel` - Default, Debug
+- `Permission` - Centralized permission management for dashboard and page access
 
 ### Adding Features
 
