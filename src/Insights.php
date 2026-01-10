@@ -408,9 +408,11 @@ class Insights extends Plugin
             return;
         }
 
-        // Check if plugin is installed (tables exist)
-        if (!Craft::$app->db->tableExists(Constants::TABLE_PAGEVIEWS)) {
-            return;
+        // Check if plugin is fully installed (all tables exist)
+        foreach (Constants::getAllTables() as $table) {
+            if (!Craft::$app->db->tableExists($table)) {
+                return;
+            }
         }
 
         // Run cleanup once per day using cache
