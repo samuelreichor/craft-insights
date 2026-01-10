@@ -33,6 +33,11 @@ class CleanupController extends Controller
         $this->stdout("  - Devices: {$results['devices']} records deleted\n");
         $this->stdout("  - Countries: {$results['countries']} records deleted\n");
         $this->stdout("  - Realtime: {$results['realtime']} records deleted\n");
+        $this->stdout("  - Events: {$results['events']} records deleted\n");
+        $this->stdout("  - Outbound: {$results['outbound']} records deleted\n");
+        $this->stdout("  - Searches: {$results['searches']} records deleted\n");
+        $this->stdout("  - Scroll Depth: {$results['scrollDepth']} records deleted\n");
+        $this->stdout("  - Sessions: {$results['sessions']} records deleted\n");
         $this->stdout("\nTotal: {$total} records deleted.\n");
 
         return ExitCode::OK;
@@ -50,12 +55,17 @@ class CleanupController extends Controller
 
         $this->stdout("\nInsights Storage Statistics:\n");
         $this->stdout("============================\n\n");
-        $this->stdout("  Pageviews:  {$stats['pageviews']} records\n");
-        $this->stdout("  Referrers:  {$stats['referrers']} records\n");
-        $this->stdout("  Campaigns:  {$stats['campaigns']} records\n");
-        $this->stdout("  Devices:    {$stats['devices']} records\n");
-        $this->stdout("  Countries:  {$stats['countries']} records\n");
-        $this->stdout("  Realtime:   {$stats['realtime']} records\n");
+        $this->stdout("  Pageviews:    {$stats['pageviews']} records\n");
+        $this->stdout("  Referrers:    {$stats['referrers']} records\n");
+        $this->stdout("  Campaigns:    {$stats['campaigns']} records\n");
+        $this->stdout("  Devices:      {$stats['devices']} records\n");
+        $this->stdout("  Countries:    {$stats['countries']} records\n");
+        $this->stdout("  Realtime:     {$stats['realtime']} records\n");
+        $this->stdout("  Events:       {$stats['events']} records\n");
+        $this->stdout("  Outbound:     {$stats['outbound']} records\n");
+        $this->stdout("  Searches:     {$stats['searches']} records\n");
+        $this->stdout("  Scroll Depth: {$stats['scrollDepth']} records\n");
+        $this->stdout("  Sessions:     {$stats['sessions']} records\n");
 
         if ($stats['oldestDate']) {
             $this->stdout("\n  Data range: {$stats['oldestDate']} to {$stats['newestDate']}\n");

@@ -418,7 +418,7 @@ class Insights extends Plugin
 
         if ($lastCleanup === false) {
             $this->cleanup->cleanup();
-            Craft::$app->cache->set(Constants::CACHE_LAST_CLEANUP, time(), 86400); // 24 hours
+            Craft::$app->cache->set(Constants::CACHE_LAST_CLEANUP, time(), Constants::CLEANUP_INTERVAL);
         }
     }
 }

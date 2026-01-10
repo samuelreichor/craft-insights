@@ -1,5 +1,8 @@
 /**
  * Insights - DSGVO-compliant tracking script
+ *
+ * Privacy-first analytics: no cookies, no sessionStorage, no fingerprinting.
+ * Sessions are tracked server-side using visitor hash + 30-minute timeout.
  */
 (function() {
     'use strict';
@@ -10,41 +13,8 @@
     var startTime = Date.now();
     var engaged = false;
 
-    // Session tracking
-    var sessionId = getOrCreateSessionId();
-    var isNewPage = true;
-
     // Scroll depth tracking - milestones reached on current page
     var scrollMilestonesReached = { 25: false, 50: false, 75: false, 100: false };
-
-    /**
-     * Generate a random session ID (32 characters)
-     */
-    function generateSessionId() {
-        var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        var id = '';
-        for (var i = 0; i < 32; i++) {
-            id += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return id;
-    }
-
-    /**
-     * Get or create session ID from sessionStorage
-     */
-    function getOrCreateSessionId() {
-        try {
-            var sid = sessionStorage.getItem('insights_sid');
-            if (!sid) {
-                sid = generateSessionId();
-                sessionStorage.setItem('insights_sid', sid);
-            }
-            return sid;
-        } catch (e) {
-            // sessionStorage not available, generate a new one each page
-            return generateSessionId();
-        }
-    }
 
     /**
      * Get URL parameter by name
@@ -96,9 +66,7 @@
                 t: getParam('utm_term'),
                 n: getParam('utm_content')
             },
-            sc: getScreenCategory(),
-            sid: sessionId,
-            np: isNewPage
+            sc: getScreenCategory()
         };
     }
 
@@ -357,9 +325,6 @@
         // Track initial pageview
         track('pv');
 
-        // Mark as no longer a new page after first pageview
-        isNewPage = false;
-
         // Setup automatic event tracking for data-insights-event elements
         setupAutoEventTracking();
 
@@ -421,7 +386,6 @@
                 startTime = Date.now();
                 engaged = false;
                 leaveSent = false;
-                isNewPage = true;
 
                 // Reset scroll depth tracking for new page
                 resetScrollTracking();
@@ -429,7 +393,6 @@
                 // Track new pageview after a short delay
                 setTimeout(function() {
                     track('pv');
-                    isNewPage = false;
                 }, 10);
             };
         }

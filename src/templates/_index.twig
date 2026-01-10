@@ -322,7 +322,7 @@
 
         {# Session Insights (Combined Widget) #}
         {% if currentUser.can('insights:viewDashboardEntryExitPages') %}
-        <div class="insights-table-container insights-session-widget">
+        <div class="insights-table-container insights-session-widget insights-full-width-lg">
             <div class="insights-table-header">
                 <h2>{{ 'Session Insights'|t('insights') }}</h2>
                 {% if not plugin('insights').is('pro') %}
@@ -448,7 +448,7 @@
 
         {# Scroll Depth (Pro only) #}
         {% if currentUser.can('insights:viewDashboardScrollDepth') %}
-        <div class="insights-table-container">
+        <div class="insights-table-container insights-full-width-lg">
             <div class="insights-table-header">
                 <h2>{{ 'Scroll Depth'|t('insights') }}</h2>
                 {% if not plugin('insights').is('pro') %}
@@ -541,7 +541,7 @@
 
         {# Top Campaigns #}
         {% if currentUser.can('insights:viewDashboardCampaigns') %}
-        <div class="insights-table-container">
+        <div class="insights-table-container insights-full-width-lg">
             <div class="insights-table-header">
                 <h2>{{ 'Campaigns'|t('insights') }}</h2>
                 {% if not plugin('insights').is('pro') %}
@@ -615,7 +615,7 @@
 
         {# Top Events #}
         {% if currentUser.can('insights:viewDashboardEvents') %}
-        <div class="insights-table-container">
+        <div class="insights-table-container insights-full-width-lg">
             <div class="insights-table-header">
                 <h2>{{ 'Top Events'|t('insights') }}</h2>
                 {% if not plugin('insights').is('pro') %}

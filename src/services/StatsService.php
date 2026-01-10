@@ -27,12 +27,10 @@ class StatsService extends Component
         [$startDate, $endDate] = $this->getDateRange($range);
         [$prevStartDate, $prevEndDate] = $this->getPreviousDateRange($range);
 
-        // Current period stats
+        // Current period pageview stats
         $current = (new Query())
             ->select([
                 'SUM([[views]]) as pageviews',
-                'SUM([[uniqueVisitors]]) as uniqueVisitors',
-                'SUM([[bounces]]) as bounces',
                 'SUM([[totalTimeOnPage]]) as totalTime',
             ])
             ->from(Constants::TABLE_PAGEVIEWS)
@@ -41,11 +39,31 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->one();
 
-        // Previous period stats for trend calculation
+        // Count unique visitors from sessions table (distinct visitor hashes)
+        $uniqueVisitors = (int)(new Query())
+            ->select(['COUNT(DISTINCT [[visitorHash]])'])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->scalar();
+
+        // Count sessions and bounces (sessions with only 1 pageview)
+        $sessionStats = (new Query())
+            ->select([
+                'COUNT(*) as totalSessions',
+                'SUM(CASE WHEN [[pageCount]] = 1 THEN 1 ELSE 0 END) as bounces',
+            ])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->one();
+
+        // Previous period pageview stats for trend calculation
         $previous = (new Query())
             ->select([
                 'SUM([[views]]) as pageviews',
-                'SUM([[uniqueVisitors]]) as uniqueVisitors',
             ])
             ->from(Constants::TABLE_PAGEVIEWS)
             ->where(['siteId' => $siteId])
@@ -53,16 +71,25 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $prevEndDate])
             ->one();
 
-        $pageviews = (int)($current['pageviews'] ?? 0);
-        $uniqueVisitors = (int)($current['uniqueVisitors'] ?? 0);
-        $bounces = (int)($current['bounces'] ?? 0);
-        $totalTime = (int)($current['totalTime'] ?? 0);
+        // Previous period unique visitors
+        $prevVisitors = (int)(new Query())
+            ->select(['COUNT(DISTINCT [[visitorHash]])'])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $prevStartDate])
+            ->andWhere(['<=', 'date', $prevEndDate])
+            ->scalar();
 
-        $bounceRate = $uniqueVisitors > 0 ? round(($bounces / $uniqueVisitors) * 100, 1) : 0;
+        $pageviews = (int)($current['pageviews'] ?? 0);
+        $totalTime = (int)($current['totalTime'] ?? 0);
+        $totalSessions = (int)($sessionStats['totalSessions'] ?? 0);
+        $bounces = (int)($sessionStats['bounces'] ?? 0);
+
+        // Bounce rate = sessions with 1 pageview / total sessions
+        $bounceRate = $totalSessions > 0 ? round(($bounces / $totalSessions) * 100, 1) : 0;
         $avgTimeOnPage = $pageviews > 0 ? round($totalTime / $pageviews) : 0;
 
         $prevPageviews = (int)($previous['pageviews'] ?? 0);
-        $prevVisitors = (int)($previous['uniqueVisitors'] ?? 0);
 
         $pageviewsTrend = $prevPageviews > 0 ? round((($pageviews - $prevPageviews) / $prevPageviews) * 100, 1) : 0;
         $visitorsTrend = $prevVisitors > 0 ? round((($uniqueVisitors - $prevVisitors) / $prevVisitors) * 100, 1) : 0;
@@ -86,11 +113,11 @@ class StatsService extends Component
     {
         [$startDate, $endDate] = $this->getDateRange($range);
 
-        $query = (new Query())
+        // Get pageviews per day
+        $pageviewsQuery = (new Query())
             ->select([
                 'date',
                 'SUM([[views]]) as pageviews',
-                'SUM([[uniqueVisitors]]) as visitors',
             ])
             ->from(Constants::TABLE_PAGEVIEWS)
             ->where(['siteId' => $siteId])
@@ -100,13 +127,29 @@ class StatsService extends Component
             ->orderBy(['date' => SORT_ASC])
             ->all();
 
-        // Fill in missing dates
-        $data = [];
-        foreach ($query as $row) {
-            $data[$row['date']] = [
-                'pageviews' => (int)$row['pageviews'],
-                'visitors' => (int)$row['visitors'],
-            ];
+        // Get unique visitors per day from sessions table
+        $visitorsQuery = (new Query())
+            ->select([
+                'date',
+                'COUNT(DISTINCT [[visitorHash]]) as visitors',
+            ])
+            ->from(Constants::TABLE_SESSIONS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['date'])
+            ->orderBy(['date' => SORT_ASC])
+            ->all();
+
+        // Build data arrays
+        $pageviewsData = [];
+        foreach ($pageviewsQuery as $row) {
+            $pageviewsData[$row['date']] = (int)$row['pageviews'];
+        }
+
+        $visitorsData = [];
+        foreach ($visitorsQuery as $row) {
+            $visitorsData[$row['date']] = (int)$row['visitors'];
         }
 
         $labels = [];
@@ -119,8 +162,8 @@ class StatsService extends Component
         while ($current <= $end) {
             $date = $current->format('Y-m-d');
             $labels[] = $current->format('M j');
-            $pageviews[] = $data[$date]['pageviews'] ?? 0;
-            $visitors[] = $data[$date]['visitors'] ?? 0;
+            $pageviews[] = $pageviewsData[$date] ?? 0;
+            $visitors[] = $visitorsData[$date] ?? 0;
             $current->modify('+1 day');
         }
 

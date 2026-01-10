@@ -60,118 +60,34 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Pages detail view.
-     */
     public function actionPages(): Response
     {
-        $this->requirePermission(Permission::ViewPages->value);
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/pages/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewPages, 'insights/pages/_index');
     }
 
-    /**
-     * Referrers detail view.
-     */
     public function actionReferrers(): Response
     {
-        $this->requirePermission(Permission::ViewReferrers->value);
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/referrers/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewReferrers, 'insights/referrers/_index');
     }
 
-    /**
-     * Campaigns detail view.
-     */
     public function actionCampaigns(): Response
     {
-        $this->requirePermission(Permission::ViewCampaigns->value);
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/campaigns/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewCampaigns, 'insights/campaigns/_index', true);
     }
 
-    /**
-     * Events detail view (Pro only).
-     */
     public function actionEvents(): Response
     {
-        $this->requirePermission(Permission::ViewEvents->value);
-
-        if (!Insights::getInstance()->isPro()) {
-            return $this->redirect('insights');
-        }
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/events/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewEvents, 'insights/events/_index', true);
     }
 
-    /**
-     * Countries detail view (Pro only).
-     */
     public function actionCountries(): Response
     {
-        $this->requirePermission(Permission::ViewCountries->value);
-
-        if (!Insights::getInstance()->isPro()) {
-            return $this->redirect('insights');
-        }
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/countries/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewCountries, 'insights/countries/_index', true);
     }
 
-    /**
-     * Outbound links detail view (Pro only).
-     */
     public function actionOutbound(): Response
     {
-        $this->requirePermission(Permission::ViewOutbound->value);
-
-        if (!Insights::getInstance()->isPro()) {
-            return $this->redirect('insights');
-        }
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/outbound/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewOutbound, 'insights/outbound/_index', true);
     }
 
     /**
@@ -516,12 +432,19 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get campaigns table data (API endpoint for Vue Admin Table).
+     * Get campaigns table data (API endpoint for Vue Admin Table, Pro only).
      */
     public function actionCampaignsTableData(): Response
     {
         $this->requireAcceptsJson();
         $this->requirePermission(Permission::ViewCampaigns->value);
+
+        if (!Insights::getInstance()->isPro()) {
+            return $this->asSuccess(data: [
+                'pagination' => AdminTable::paginationLinks(1, 0, 50),
+                'data' => [],
+            ]);
+        }
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -890,67 +813,19 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Site searches detail view (Pro only).
-     */
     public function actionSearches(): Response
     {
-        $this->requirePermission(Permission::ViewSearches->value);
-
-        if (!Insights::getInstance()->isPro()) {
-            return $this->redirect('insights');
-        }
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/searches/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewSearches, 'insights/searches/_index', true);
     }
 
-    /**
-     * Entry & Exit Pages detail view (Pro only).
-     */
     public function actionEntryExitPages(): Response
     {
-        $this->requirePermission(Permission::ViewEntryExitPages->value);
-
-        if (!Insights::getInstance()->isPro()) {
-            return $this->redirect('insights');
-        }
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/entry-exit-pages/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewEntryExitPages, 'insights/entry-exit-pages/_index', true);
     }
 
-    /**
-     * Scroll Depth detail view (Pro only).
-     */
     public function actionScrollDepth(): Response
     {
-        $this->requirePermission(Permission::ViewScrollDepth->value);
-
-        if (!Insights::getInstance()->isPro()) {
-            return $this->redirect('insights');
-        }
-
-        $settings = Insights::getInstance()->getSettings();
-        $siteId = $this->resolveSiteId();
-        $range = Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange);
-
-        return $this->renderTemplate('insights/scroll-depth/_index', [
-            'selectedSiteId' => $siteId,
-            'selectedRange' => $range,
-        ]);
+        return $this->renderDetailView(Permission::ViewScrollDepth, 'insights/scroll-depth/_index', true);
     }
 
     /**
@@ -1301,6 +1176,25 @@ class DashboardController extends Controller
         return $this->asSuccess(data: [
             'pagination' => AdminTable::paginationLinks($page, $total, $limit),
             'data' => $tableData,
+        ]);
+    }
+
+    /**
+     * Render a detail view with common boilerplate.
+     */
+    private function renderDetailView(Permission $permission, string $template, bool $proOnly = false): Response
+    {
+        $this->requirePermission($permission->value);
+
+        if ($proOnly && !Insights::getInstance()->isPro()) {
+            return $this->redirect('insights');
+        }
+
+        $settings = Insights::getInstance()->getSettings();
+
+        return $this->renderTemplate($template, [
+            'selectedSiteId' => $this->resolveSiteId(),
+            'selectedRange' => Craft::$app->getRequest()->getQueryParam('range', $settings->defaultDateRange),
         ]);
     }
 

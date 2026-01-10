@@ -40,10 +40,6 @@
     font-size: 16px;
     font-weight: 600;
 }
-.insights-table-section .export-link {
-    float: right;
-    font-size: 13px;
-}
 </style>
 
 <div class="insights-page">
@@ -62,22 +58,19 @@
                 value: selectedRange,
             }) }}
         </div>
+        <div class="flex-grow"></div>
+        <a href="{{ actionUrl('insights/export/entry-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn" id="entry-export">{{ 'Export Entry Pages'|t('insights') }}</a>
+        <a href="{{ actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn" id="exit-export">{{ 'Export Exit Pages'|t('insights') }}</a>
     </div>
 
     <div class="insights-dual-tables">
         <div class="insights-table-section">
-            <h3>
-                {{ 'Entry Pages'|t('insights') }}
-                <a href="{{ actionUrl('insights/export/entry-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="export-link btn small" id="entry-export">{{ 'Export CSV'|t('insights') }}</a>
-            </h3>
+            <h3>{{ 'Entry Pages'|t('insights') }}</h3>
             <div id="entry-pages-table"></div>
         </div>
 
         <div class="insights-table-section">
-            <h3>
-                {{ 'Exit Pages'|t('insights') }}
-                <a href="{{ actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="export-link btn small" id="exit-export">{{ 'Export CSV'|t('insights') }}</a>
-            </h3>
+            <h3>{{ 'Exit Pages'|t('insights') }}</h3>
             <div id="exit-pages-table"></div>
         </div>
     </div>

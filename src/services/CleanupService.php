@@ -18,7 +18,7 @@ class CleanupService extends Component
     /**
      * Run cleanup for all tables based on data retention settings.
      *
-     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int}
+     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int}
      */
     public function cleanup(): array
     {
@@ -43,6 +43,8 @@ class CleanupService extends Component
             'events' => 0,
             'outbound' => 0,
             'searches' => 0,
+            'scrollDepth' => 0,
+            'sessions' => 0,
         ];
 
         // Clean pageviews
@@ -107,6 +109,20 @@ class CleanupService extends Component
             ->execute();
         $logger->stopTimer('cleanSearches', ['deleted' => $results['searches']]);
 
+        // Clean scroll depth
+        $logger->startTimer('cleanScrollDepth');
+        $results['scrollDepth'] = Craft::$app->db->createCommand()
+            ->delete(Constants::TABLE_SCROLL_DEPTH, ['<', 'date', $cutoffDate])
+            ->execute();
+        $logger->stopTimer('cleanScrollDepth', ['deleted' => $results['scrollDepth']]);
+
+        // Clean sessions
+        $logger->startTimer('cleanSessions');
+        $results['sessions'] = Craft::$app->db->createCommand()
+            ->delete(Constants::TABLE_SESSIONS, ['<', 'date', $cutoffDate])
+            ->execute();
+        $logger->stopTimer('cleanSessions', ['deleted' => $results['sessions']]);
+
         $total = array_sum($results);
         $logger->endFeature('Cleanup', ['totalDeleted' => $total, 'results' => $results]);
 
@@ -133,7 +149,7 @@ class CleanupService extends Component
     /**
      * Get statistics about stored data.
      *
-     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, oldestDate: string|null, newestDate: string|null}
+     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int, oldestDate: string|null, newestDate: string|null}
      */
     public function getStorageStats(): array
     {
@@ -164,6 +180,12 @@ class CleanupService extends Component
                 ->count(),
             'searches' => (int)(new Query())
                 ->from(Constants::TABLE_SEARCHES)
+                ->count(),
+            'scrollDepth' => (int)(new Query())
+                ->from(Constants::TABLE_SCROLL_DEPTH)
+                ->count(),
+            'sessions' => (int)(new Query())
+                ->from(Constants::TABLE_SESSIONS)
                 ->count(),
         ];
 

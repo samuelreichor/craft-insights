@@ -110,15 +110,6 @@ class GeoIpService extends Component
     }
 
     /**
-     * Check if the GeoIP database exists and is valid.
-     */
-    public function isDatabaseAvailable(): bool
-    {
-        $path = $this->getDatabasePath();
-        return $path !== null && file_exists($path);
-    }
-
-    /**
      * Get database info for the settings page.
      *
      * @return array{exists: bool, path: string|null, size: int|null, modified: string|null}

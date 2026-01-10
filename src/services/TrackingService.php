@@ -57,7 +57,7 @@ class TrackingService extends Component
         $logger->stopTimer('findEntry', ['entryId' => $entryId]);
 
         // Check if this is a new visitor for this URL today
-        $isNew = $this->isNewVisitor($visitorHash, $url, $siteId, $date);
+        $isNew = $this->isNewVisitorFor('pv', $visitorHash, $url, $siteId, $date);
         $logger->step('Pageview', 'Visitor check', ['isNew' => $isNew]);
 
         // Aggregate pageview (UPSERT)
@@ -118,11 +118,10 @@ class TrackingService extends Component
         $logger->stopTimer('updateRealtime');
 
         // Track session (for pages per session, entry/exit pages)
-        if (!empty($data['sid'])) {
-            $logger->startTimer('trackSession');
-            $this->trackSession($data, $userAgent, $ip, $siteId);
-            $logger->stopTimer('trackSession');
-        }
+        // Sessions are tracked server-side using visitor hash + 30-minute timeout
+        $logger->startTimer('trackSession');
+        $this->trackSession($url, $entryId, $visitorHash, $siteId);
+        $logger->stopTimer('trackSession');
 
         $logger->endFeature('Pageview', ['url' => $url, 'isNew' => $isNew]);
     }
@@ -205,14 +204,20 @@ class TrackingService extends Component
     }
 
     /**
-     * Check if this is a new visitor for this URL today.
+     * Check if this is a new visitor for the given type and identifier today.
      *
      * Uses atomic cache->add() to prevent race conditions where concurrent
      * requests could both return true before either sets the key.
+     *
+     * @param string $type Type prefix for cache key (e.g., 'pv', 'ev', 'ob', 'sr', 'sd')
+     * @param string $hash Visitor hash
+     * @param string $identifier Unique identifier (URL, event name, etc.)
+     * @param int $siteId Site ID
+     * @param string $date Date string (Y-m-d)
      */
-    private function isNewVisitor(string $hash, string $url, int $siteId, string $date): bool
+    private function isNewVisitorFor(string $type, string $hash, string $identifier, int $siteId, string $date): bool
     {
-        $key = Constants::CACHE_VISITOR . "{$siteId}_{$date}_{$hash}_" . md5($url);
+        $key = Constants::CACHE_VISITOR . "{$type}_{$siteId}_{$date}_{$hash}_" . md5($identifier);
 
         // Cache until midnight - add() is atomic and returns false if key exists
         $ttl = strtotime('tomorrow') - time();
@@ -401,7 +406,7 @@ class TrackingService extends Component
         $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this is a new visitor for this event today
-        $isNew = $this->isNewEventVisitor($visitorHash, $eventName, $siteId, $date);
+        $isNew = $this->isNewVisitorFor('ev', $visitorHash, $eventName, $siteId, $date);
 
         // Aggregate event (UPSERT)
         $logger->startTimer('upsertEvent');
@@ -423,21 +428,6 @@ class TrackingService extends Component
         $logger->stopTimer('upsertEvent');
 
         $logger->endFeature('CustomEvent', ['name' => $eventName, 'isNew' => $isNew]);
-    }
-
-    /**
-     * Check if this is a new visitor for this event today.
-     *
-     * Uses atomic cache->add() to prevent race conditions.
-     */
-    private function isNewEventVisitor(string $hash, string $eventName, int $siteId, string $date): bool
-    {
-        $key = Constants::CACHE_VISITOR . "ev_{$siteId}_{$date}_{$hash}_" . md5($eventName);
-
-        // Cache until midnight - add() is atomic and returns false if key exists
-        $ttl = strtotime('tomorrow') - time();
-
-        return Craft::$app->cache->add($key, 1, $ttl);
     }
 
     /**
@@ -479,7 +469,7 @@ class TrackingService extends Component
         $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this is a new visitor for this outbound link today
-        $isNew = $this->isNewOutboundVisitor($visitorHash, $targetUrl, $siteId, $date);
+        $isNew = $this->isNewVisitorFor('ob', $visitorHash, $targetUrl, $siteId, $date);
 
         // Generate URL hash for unique constraint (to avoid MySQL key length limits)
         $urlHash = md5($targetUrl . $sourceUrl);
@@ -516,21 +506,6 @@ class TrackingService extends Component
     {
         $parsed = parse_url($url);
         return $parsed['host'] ?? '';
-    }
-
-    /**
-     * Check if this is a new visitor for this outbound link today.
-     *
-     * Uses atomic cache->add() to prevent race conditions.
-     */
-    private function isNewOutboundVisitor(string $hash, string $targetUrl, int $siteId, string $date): bool
-    {
-        $key = Constants::CACHE_VISITOR . "ob_{$siteId}_{$date}_{$hash}_" . md5($targetUrl);
-
-        // Cache until midnight - add() is atomic and returns false if key exists
-        $ttl = strtotime('tomorrow') - time();
-
-        return Craft::$app->cache->add($key, 1, $ttl);
     }
 
     /**
@@ -574,7 +549,7 @@ class TrackingService extends Component
         $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this is a new visitor for this search term today
-        $isNew = $this->isNewSearchVisitor($visitorHash, $searchTerm, $siteId, $date);
+        $isNew = $this->isNewVisitorFor('sr', $visitorHash, $searchTerm, $siteId, $date);
 
         // Aggregate search (UPSERT)
         $logger->startTimer('upsertSearch');
@@ -596,21 +571,6 @@ class TrackingService extends Component
         $logger->stopTimer('upsertSearch');
 
         $logger->endFeature('SiteSearch', ['searchTerm' => $searchTerm, 'isNew' => $isNew]);
-    }
-
-    /**
-     * Check if this is a new visitor for this search term today.
-     *
-     * Uses atomic cache->add() to prevent race conditions.
-     */
-    private function isNewSearchVisitor(string $hash, string $searchTerm, int $siteId, string $date): bool
-    {
-        $key = Constants::CACHE_VISITOR . "sr_{$siteId}_{$date}_{$hash}_" . md5($searchTerm);
-
-        // Cache until midnight - add() is atomic and returns false if key exists
-        $ttl = strtotime('tomorrow') - time();
-
-        return Craft::$app->cache->add($key, 1, $ttl);
     }
 
     /**
@@ -656,7 +616,7 @@ class TrackingService extends Component
         $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
 
         // Check if this visitor already reached this milestone today
-        if (!$this->isNewScrollMilestone($visitorHash, $url, $milestone, $siteId, $date)) {
+        if (!$this->isNewVisitorFor("sd_{$milestone->value}", $visitorHash, $url, $siteId, $date)) {
             $logger->debug('Milestone already recorded for this visitor');
             return;
         }
@@ -687,119 +647,76 @@ class TrackingService extends Component
     }
 
     /**
-     * Check if this is a new scroll milestone for this visitor.
+     * Track or update a visitor's session (server-side, Plausible-style).
      *
-     * Uses atomic cache->add() to prevent race conditions.
-     */
-    private function isNewScrollMilestone(
-        string $hash,
-        string $url,
-        ScrollDepthMilestone $milestone,
-        int $siteId,
-        string $date,
-    ): bool {
-        $key = Constants::CACHE_VISITOR . "sd_{$siteId}_{$date}_{$hash}_{$milestone->value}_" . md5($url);
-
-        // Cache until midnight - add() is atomic and returns false if key exists
-        $ttl = strtotime('tomorrow') - time();
-
-        return Craft::$app->cache->add($key, 1, $ttl);
-    }
-
-    /**
-     * Track or update a visitor's session.
+     * Sessions are detected purely server-side using visitor hash + 30-minute timeout.
+     * No client-side storage (cookies, sessionStorage) is used.
      *
-     * Sessions are tracked to calculate pages per session, entry pages, and exit pages.
-     * A session expires after 30 minutes of inactivity.
+     * Logic:
+     * - Find most recent session for this visitor on this site
+     * - If session exists AND last activity < 30 minutes ago → update session
+     * - If no session OR timed out → create new session
      *
-     * @param array<string, mixed> $data Tracking data from frontend
-     * @param string $userAgent User agent string
-     * @param string $ip IP address (used transiently for hash, NOT stored)
+     * @param string $url Current page URL
+     * @param int|null $entryId Entry ID for the URL (if resolved)
+     * @param string $visitorHash Visitor hash (already generated in processPageview)
      * @param int $siteId Site ID
      */
-    public function trackSession(array $data, string $userAgent, string $ip, int $siteId): void
+    public function trackSession(string $url, ?int $entryId, string $visitorHash, int $siteId): void
     {
         $logger = Insights::getInstance()->logger;
-        $logger->beginFeature('Session', ['siteId' => $siteId]);
-
-        $url = $this->sanitizeUrl($data['u'] ?? Constants::DEFAULT_PATH);
-        $sessionId = $data['sid'] ?? '';
-        $isNewPage = (bool)($data['np'] ?? true);
-
-        if (empty($sessionId)) {
-            $logger->debug('No session ID provided');
-            return;
-        }
-
-        // Generate visitor hash
-        $visitorHash = Insights::getInstance()->visitor->generateHash($userAgent, $ip, $siteId);
-
-        // Find entry ID for this URL
-        $entryId = $this->findEntryByUrl($url, $siteId);
+        $logger->beginFeature('Session', ['siteId' => $siteId, 'visitorHash' => substr($visitorHash, 0, 8) . '...']);
 
         $now = date('Y-m-d H:i:s');
         $date = date('Y-m-d');
+        $timeout = Constants::SESSION_TIMEOUT;
+        $cutoffTime = date('Y-m-d H:i:s', time() - $timeout);
 
-        // Try to find existing session
+        // Find most recent active session for this visitor (within timeout window)
         $logger->startTimer('findSession');
         $existingSession = (new \craft\db\Query())
-            ->select(['id', 'pageCount', 'entryUrl', 'entryEntryId', 'lastActivityTime'])
+            ->select(['id', 'sessionId', 'pageCount', 'entryUrl', 'entryEntryId', 'lastActivityTime'])
             ->from(Constants::TABLE_SESSIONS)
             ->where([
                 'siteId' => $siteId,
                 'visitorHash' => $visitorHash,
-                'sessionId' => $sessionId,
             ])
+            ->andWhere(['>=', 'lastActivityTime', $cutoffTime])
+            ->orderBy(['lastActivityTime' => SORT_DESC])
             ->one();
         $logger->stopTimer('findSession');
 
         if ($existingSession) {
-            // Check if session has timed out (30 minutes)
-            $lastActivity = strtotime($existingSession['lastActivityTime']);
-            $timeout = Constants::SESSION_TIMEOUT;
-
-            if (time() - $lastActivity > $timeout) {
-                // Session timed out - create a new one with same sessionId but new date
-                $logger->step('Session', 'Session timed out, creating new');
-                $this->createNewSession($siteId, $visitorHash, $sessionId, $url, $entryId, $date, $now);
-            } else {
-                // Update existing session
-                $logger->startTimer('updateSession');
-                $updateData = [
+            // Session is still active - update it
+            $logger->startTimer('updateSession');
+            Craft::$app->db->createCommand()
+                ->update(Constants::TABLE_SESSIONS, [
+                    'pageCount' => new Expression('[[pageCount]] + 1'),
                     'exitUrl' => $url,
                     'exitEntryId' => $entryId,
                     'lastActivityTime' => $now,
-                ];
+                ], ['id' => $existingSession['id']])
+                ->execute();
+            $logger->stopTimer('updateSession');
 
-                // Only increment page count for new pages
-                if ($isNewPage) {
-                    $updateData['pageCount'] = new Expression('[[pageCount]] + 1');
-                }
-
-                Craft::$app->db->createCommand()
-                    ->update(Constants::TABLE_SESSIONS, $updateData, ['id' => $existingSession['id']])
-                    ->execute();
-                $logger->stopTimer('updateSession');
-
-                $logger->step('Session', 'Updated existing session', [
-                    'pageCount' => $existingSession['pageCount'] + ($isNewPage ? 1 : 0),
-                ]);
-            }
+            $logger->step('Session', 'Updated existing session', [
+                'sessionId' => $existingSession['sessionId'],
+                'pageCount' => $existingSession['pageCount'] + 1,
+            ]);
         } else {
-            // Create new session
-            $this->createNewSession($siteId, $visitorHash, $sessionId, $url, $entryId, $date, $now);
+            // No active session found - create new one
+            $this->createNewSession($siteId, $visitorHash, $url, $entryId, $date, $now);
         }
 
-        $logger->endFeature('Session', ['url' => $url, 'sessionId' => $sessionId]);
+        $logger->endFeature('Session', ['url' => $url]);
     }
 
     /**
-     * Create a new session record.
+     * Create a new session record with server-generated session ID.
      */
     private function createNewSession(
         int $siteId,
         string $visitorHash,
-        string $sessionId,
         string $entryUrl,
         ?int $entryId,
         string $date,
@@ -808,7 +725,10 @@ class TrackingService extends Component
         $logger = Insights::getInstance()->logger;
         $logger->startTimer('createSession');
 
-        Db::upsert(Constants::TABLE_SESSIONS, [
+        // Generate a unique session ID server-side
+        $sessionId = bin2hex(random_bytes(16));
+
+        Craft::$app->db->createCommand()->insert(Constants::TABLE_SESSIONS, [
             'siteId' => $siteId,
             'date' => $date,
             'visitorHash' => $visitorHash,
@@ -820,15 +740,9 @@ class TrackingService extends Component
             'exitEntryId' => $entryId,
             'startTime' => $now,
             'lastActivityTime' => $now,
-        ], [
-            // On conflict, treat as session continuation (same visitor, same sessionId)
-            'pageCount' => new Expression('[[pageCount]] + 1'),
-            'exitUrl' => $entryUrl,
-            'exitEntryId' => $entryId,
-            'lastActivityTime' => $now,
-        ]);
+        ])->execute();
 
         $logger->stopTimer('createSession');
-        $logger->step('Session', 'Created new session');
+        $logger->step('Session', 'Created new session', ['sessionId' => $sessionId]);
     }
 }

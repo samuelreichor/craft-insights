@@ -53,19 +53,4 @@ enum ScrollDepthMilestone: int
             default => null,
         };
     }
-
-    /**
-     * Get all milestones in order.
-     *
-     * @return self[]
-     */
-    public static function all(): array
-    {
-        return [
-            self::Percent25,
-            self::Percent50,
-            self::Percent75,
-            self::Percent100,
-        ];
-    }
 }

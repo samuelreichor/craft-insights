@@ -61,6 +61,7 @@
     allowAdd: true,
     allowDelete: true,
     allowReorder: true,
+    errors: settings.getErrors('excludedPaths'),
 }) }}
 
 {% if plugin.is('pro') %}
@@ -80,6 +81,7 @@
     allowAdd: true,
     allowDelete: true,
     allowReorder: true,
+    errors: settings.getErrors('excludedIpRanges'),
 }) }}
 {% endif %}
 
@@ -97,6 +99,7 @@
     min: 1,
     max: 730,
     size: 5,
+    errors: settings.getErrors('dataRetentionDays'),
 }) }}
 
 {{ forms.lightswitchField({
@@ -137,6 +140,7 @@
     name: 'geoIpDatabasePath',
     value: settings.geoIpDatabasePath,
     placeholder: '@storage/geoip/GeoLite2-Country.mmdb',
+    errors: settings.getErrors('geoIpDatabasePath'),
 }) }}
 
 
@@ -183,6 +187,7 @@
     min: 60,
     max: 900,
     size: 5,
+    errors: settings.getErrors('realtimeTtl'),
 }) }}
 
 <hr>

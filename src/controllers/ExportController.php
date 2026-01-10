@@ -5,6 +5,7 @@ namespace samuelreichor\insights\controllers;
 use Craft;
 use craft\web\Controller;
 use samuelreichor\insights\Insights;
+use samuelreichor\insights\services\StatsService;
 use yii\web\Response;
 
 /**
@@ -14,165 +15,76 @@ use yii\web\Response;
  */
 class ExportController extends Controller
 {
-    /**
-     * Export pageviews data.
-     */
     public function actionPageviews(): Response
     {
-        $this->requirePermission('insights:exportData');
-
-        $request = Craft::$app->getRequest();
-        $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
-        $format = $request->getQueryParam('format', 'csv');
-
-        $stats = Insights::getInstance()->stats;
-        $data = $stats->getTopPages($siteId, $range, 1000);
-
-        $filename = "insights-pageviews-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopPages($siteId, $range, 1000), 'pageviews');
     }
 
-    /**
-     * Export referrers data.
-     */
     public function actionReferrers(): Response
     {
-        $this->requirePermission('insights:exportData');
-
-        $request = Craft::$app->getRequest();
-        $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
-        $format = $request->getQueryParam('format', 'csv');
-
-        $stats = Insights::getInstance()->stats;
-        $data = $stats->getTopReferrers($siteId, $range, 1000);
-
-        $filename = "insights-referrers-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopReferrers($siteId, $range, 1000), 'referrers');
     }
 
-    /**
-     * Export campaigns data.
-     */
     public function actionCampaigns(): Response
     {
-        $this->requirePermission('insights:exportData');
-
-        $request = Craft::$app->getRequest();
-        $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
-        $format = $request->getQueryParam('format', 'csv');
-
-        $stats = Insights::getInstance()->stats;
-        $data = $stats->getTopCampaigns($siteId, $range, 1000);
-
-        $filename = "insights-campaigns-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopCampaigns($siteId, $range, 1000), 'campaigns');
     }
 
-    /**
-     * Export countries data.
-     */
     public function actionCountries(): Response
     {
-        $this->requirePermission('insights:exportData');
-
-        $request = Craft::$app->getRequest();
-        $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
-        $format = $request->getQueryParam('format', 'csv');
-
-        $stats = Insights::getInstance()->stats;
-        $data = $stats->getTopCountries($siteId, $range, 1000);
-
-        $filename = "insights-countries-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopCountries($siteId, $range, 1000), 'countries');
     }
 
-    /**
-     * Export entry pages data.
-     */
     public function actionEntryPages(): Response
     {
-        $this->requirePermission('insights:exportData');
-
-        $request = Craft::$app->getRequest();
-        $settings = Insights::getInstance()->getSettings();
-
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
-        $format = $request->getQueryParam('format', 'csv');
-
-        $stats = Insights::getInstance()->stats;
-        $data = $stats->getTopEntryPages($siteId, $range, 1000);
-
-        $filename = "insights-entry-pages-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopEntryPages($siteId, $range, 1000), 'entry-pages');
     }
 
-    /**
-     * Export exit pages data.
-     */
     public function actionExitPages(): Response
     {
-        $this->requirePermission('insights:exportData');
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopExitPages($siteId, $range, 1000), 'exit-pages');
+    }
 
-        $request = Craft::$app->getRequest();
-        $settings = Insights::getInstance()->getSettings();
+    public function actionScrollDepth(): Response
+    {
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getScrollDepth($siteId, $range, 1000), 'scroll-depth');
+    }
 
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
-        $range = $request->getQueryParam('range', $settings->defaultDateRange);
-        $format = $request->getQueryParam('format', 'csv');
+    public function actionEvents(): Response
+    {
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopEvents($siteId, $range, 1000), 'events');
+    }
 
-        $stats = Insights::getInstance()->stats;
-        $data = $stats->getTopExitPages($siteId, $range, 1000);
+    public function actionOutbound(): Response
+    {
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopOutboundLinks($siteId, $range, 1000), 'outbound');
+    }
 
-        $filename = "insights-exit-pages-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+    public function actionSearches(): Response
+    {
+        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopSearches($siteId, $range, 1000), 'searches');
     }
 
     /**
-     * Export scroll depth data.
+     * Handle export with common boilerplate.
+     *
+     * @param callable(StatsService, int, string): array<int, array<string, mixed>> $dataFetcher
      */
-    public function actionScrollDepth(): Response
+    private function handleExport(callable $dataFetcher, string $type): Response
     {
         $this->requirePermission('insights:exportData');
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
 
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $siteId = (int)($request->getQueryParam('siteId') ?? Craft::$app->getSites()->getCurrentSite()->id);
         $range = $request->getQueryParam('range', $settings->defaultDateRange);
         $format = $request->getQueryParam('format', 'csv');
 
         $stats = Insights::getInstance()->stats;
-        $data = $stats->getScrollDepth($siteId, $range, 1000);
+        $data = $dataFetcher($stats, $siteId, $range);
 
-        $filename = "insights-scroll-depth-{$range}";
-
-        return $this->exportData($data, $filename, $format);
+        return $this->exportData($data, "insights-{$type}-{$range}", $format);
     }
 
     /**

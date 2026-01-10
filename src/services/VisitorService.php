@@ -5,8 +5,6 @@ namespace samuelreichor\insights\services;
 use Craft;
 use craft\base\Component;
 use samuelreichor\insights\Constants;
-use samuelreichor\insights\enums\ScreenCategory;
-use WhichBrowser\Parser;
 
 /**
  * Visitor Service
@@ -83,46 +81,5 @@ class VisitorService extends Component
         Craft::$app->cache->set($cacheKey, $salt, $ttl);
 
         return $salt;
-    }
-
-    /**
-     * Extract browser family from user agent.
-     *
-     * Returns only the browser family name, not version or specific details.
-     */
-    public function getBrowserFamily(string $userAgent): string
-    {
-        try {
-            $parser = new Parser($userAgent);
-            return $parser->browser->name ?: Constants::DEFAULT_UNKNOWN;
-        } catch (\Throwable) {
-            return Constants::DEFAULT_UNKNOWN;
-        }
-    }
-
-    /**
-     * Extract the primary language from Accept-Language header.
-     */
-    public function getPrimaryLanguage(?string $acceptLanguage): string
-    {
-        if (empty($acceptLanguage)) {
-            return 'en';
-        }
-
-        // Get first language preference
-        $languages = explode(',', $acceptLanguage);
-        $primary = $languages[0] ?? 'en';
-
-        // Extract just the language code (e.g., "de" from "de-DE")
-        $parts = explode('-', trim(explode(';', $primary)[0]));
-        return strtolower($parts[0]) ?: 'en';
-    }
-
-    /**
-     * Parse the screen category from width.
-     */
-    public function parseScreenCategory(int $width): ScreenCategory
-    {
-        return ScreenCategory::fromWidth($width);
     }
 }
