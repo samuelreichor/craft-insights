@@ -112,4 +112,21 @@ class ProcessTrackingJob extends BaseJob
     {
         return Craft::t('insights', 'Processing Insights tracking data');
     }
+
+    /**
+     * @inheritdoc
+     */
+    public function getTtr(): int
+    {
+        return Insights::getInstance()->getSettings()->queueJobTtr;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function canRetry($attempt, $error): bool
+    {
+        $maxAttempts = Insights::getInstance()->getSettings()->maxRetryAttempts;
+        return $attempt < $maxAttempts;
+    }
 }

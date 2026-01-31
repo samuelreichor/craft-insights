@@ -38,6 +38,11 @@ class Settings extends Model
     public bool $useQueue = true;
     public int $realtimeTtl = 300; // 5 minutes
 
+    // Queue Job Settings
+    public int $queueJobTtr = 300; // Time to reserve in seconds
+    public int $processTrackingJobPriority = 20; // Lower number = higher priority (default: 1024)
+    public int $maxRetryAttempts = 3;
+
     // Dashboard
     public string $defaultDateRange = '30d';
     public bool $showRealtimeWidget = true;
@@ -100,6 +105,9 @@ class Settings extends Model
             [['autoCleanup', 'useQueue', 'showRealtimeWidget', 'showEntrySidebar'], 'boolean'],
             [['dataRetentionDays'], 'integer', 'min' => 1, 'max' => 730],
             [['realtimeTtl'], 'integer', 'min' => 60, 'max' => 900],
+            [['queueJobTtr'], 'integer', 'min' => 60, 'max' => 3600],
+            [['processTrackingJobPriority'], 'integer', 'min' => 1, 'max' => 10000],
+            [['maxRetryAttempts'], 'integer', 'min' => 0, 'max' => 10],
             [['excludedPaths', 'excludedIpRanges'], 'each', 'rule' => ['string']],
             [['geoIpDatabasePath', 'defaultDateRange', 'logLevel'], 'string'],
             [['defaultDateRange'], 'in', 'range' => array_column(DateRange::cases(), 'value')],

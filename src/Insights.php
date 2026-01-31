@@ -6,10 +6,12 @@ use Craft;
 use craft\base\Model;
 use craft\base\Plugin;
 use craft\elements\Entry;
+use craft\elements\User;
 use craft\events\DefineHtmlEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
+use craft\queue\Queue;
 use craft\services\Dashboard;
 use craft\services\Fields;
 use craft\services\UserPermissions;
@@ -70,6 +72,36 @@ class Insights extends Plugin
     public function isPro(): bool
     {
         return $this->is(self::EDITION_PRO);
+    }
+
+    /**
+     * Get the queue to use for Insights jobs.
+     *
+     * Uses custom 'insightsQueue' if configured in app.php, otherwise falls back to default queue.
+     *
+     * To configure a custom queue, add to config/app.php:
+     * ```php
+     * return [
+     *     'bootstrap' => ['insightsQueue'],
+     *     'components' => [
+     *         'insightsQueue' => [
+     *             'class' => \craft\queue\Queue::class,
+     *         ],
+     *     ],
+     * ];
+     * ```
+     */
+    public function getQueue(): Queue
+    {
+        if (Craft::$app->has('insightsQueue')) {
+            $queue = Craft::$app->get('insightsQueue');
+            if ($queue instanceof Queue) {
+                return $queue;
+            }
+        }
+
+        /** @var Queue */
+        return Craft::$app->queue;
     }
 
     public static function config(): array
@@ -225,7 +257,7 @@ class Insights extends Plugin
     /**
      * Check if user has at least one dashboard permission.
      */
-    private function userHasAnyDashboardPermission(\craft\elements\User $user): bool
+    private function userHasAnyDashboardPermission(User $user): bool
     {
         // Check parent permission first
         if ($user->can(Permission::ViewDashboard->value)) {
