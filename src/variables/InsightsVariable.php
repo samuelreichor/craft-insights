@@ -85,6 +85,16 @@ class InsightsVariable
     }
 
     /**
+     * Get database connection status.
+     *
+     * @return array{configured: bool, enabled: bool, connected: bool, usingExternal: bool, error: string|null, details: array<string, mixed>}
+     */
+    public function getDatabaseStatus(): array
+    {
+        return Insights::getInstance()->database->getConnectionStatus();
+    }
+
+    /**
      * Get storage statistics.
      *
      * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, oldestDate: string|null, newestDate: string|null}

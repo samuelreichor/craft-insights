@@ -238,3 +238,43 @@
         { label: 'Debug (All tracking steps)'|t('insights'), value: 'debug' },
     ],
 }) }}
+
+{# ========== EXTERNAL DATABASE (Pro) ========== #}
+{% if plugin.is('pro') %}
+    <hr>
+
+    <h2>{{ 'External Database'|t('insights') }}</h2>
+
+    {% set dbStatus = craft.insights.getDatabaseStatus() %}
+
+    {% if dbStatus.configured %}
+        {# Status badge inline with lightswitch #}
+        {% set statusBadge %}
+            {% if dbStatus.error and not dbStatus.enabled %}
+                <span style="display: inline-block; padding: 2px 8px; background: #fee2e2; color: #991b1b; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Config Error'|t('insights') }}</span>
+            {% elseif dbStatus.connected and dbStatus.tablesExist %}
+                <span style="display: inline-block; padding: 2px 8px; background: #d1fae5; color: #065f46; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Connected'|t('insights') }}</span>
+            {% elseif dbStatus.connected and not dbStatus.tablesExist %}
+                <span style="display: inline-block; padding: 2px 8px; background: #fef3c7; color: #92400e; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Tables Missing'|t('insights') }}</span>
+            {% elseif dbStatus.enabled %}
+                <span style="display: inline-block; padding: 2px 8px; background: #fee2e2; color: #991b1b; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Connection Failed'|t('insights') }}</span>
+            {% endif %}
+        {% endset %}
+
+        {{ forms.lightswitchField({
+            label: 'Use External Database'|t('insights') ~ statusBadge,
+            instructions: 'Store analytics data in the external database instead of the Craft database. DSN: <code>' ~ dbStatus.details.dsn ~ '</code>',
+            name: 'useExternalDatabase',
+            on: settings.useExternalDatabase,
+        }) }}
+
+        {% if dbStatus.error %}
+            <p class="error">{{ dbStatus.error }}</p>
+        {% elseif dbStatus.connected and not dbStatus.tablesExist %}
+            <p class="warning">{{ 'Run'|t('insights') }} <code>php craft insights/database/migrate</code> {{ 'to create tables.'|t('insights') }}</p>
+        {% endif %}
+
+    {% else %}
+        <p class="light">{{ 'To use an external database, add the'|t('insights') }} <code>insightsDb</code> {{ 'component to'|t('insights') }} <code>config/app.php</code>. <a href="https://craftcms.com/knowledge-base/connecting-to-multiple-databases" target="_blank" rel="noopener">{{ 'Learn more'|t('insights') }}</a></p>
+    {% endif %}
+{% endif %}

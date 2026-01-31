@@ -26,6 +26,25 @@ use yii\db\Expression;
 class TrackingService extends Component
 {
     /**
+     * Add timestamp fields for external database compatibility.
+     *
+     * Craft's internal DB handles these automatically via behaviors,
+     * but external databases need them explicitly.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function withTimestamps(array $data): array
+    {
+        $now = date('Y-m-d H:i:s');
+        $data['dateCreated'] = $now;
+        $data['dateUpdated'] = $now;
+        $data['uid'] = bin2hex(random_bytes(16));
+
+        return $data;
+    }
+
+    /**
      * Process a pageview event.
      *
      * @param array<string, mixed> $data Tracking data from frontend
@@ -64,7 +83,8 @@ class TrackingService extends Component
         // First array = INSERT values (used when row doesn't exist)
         // Second array = UPDATE values (used when row exists)
         $logger->startTimer('upsertPageview');
-        Db::upsert(Constants::TABLE_PAGEVIEWS, [
+        $db = Insights::getInstance()->database->getConnection();
+        Db::upsert(Constants::TABLE_PAGEVIEWS, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'hour' => $hour,
@@ -73,7 +93,7 @@ class TrackingService extends Component
             'views' => 1,
             'uniqueVisitors' => $isNew ? 1 : 0,
             'bounces' => $isNew ? 1 : 0,
-        ], [
+        ]), [
             'views' => new Expression('[[views]] + 1'),
             'uniqueVisitors' => $isNew
                 ? new Expression('[[uniqueVisitors]] + 1')
@@ -81,7 +101,7 @@ class TrackingService extends Component
             'bounces' => $isNew
                 ? new Expression('[[bounces]] + 1')
                 : new Expression('[[bounces]]'),
-        ]);
+        ], [], true, $db);
         $logger->stopTimer('upsertPageview');
 
         // Track referrer
@@ -142,7 +162,8 @@ class TrackingService extends Component
 
         // Decrement bounce count (use CASE to avoid UNSIGNED underflow)
         $logger->startTimer('updateBounce');
-        Craft::$app->db->createCommand()
+        $db = Insights::getInstance()->database->getConnection();
+        $db->createCommand()
             ->update(Constants::TABLE_PAGEVIEWS, [
                 'bounces' => new Expression('CASE WHEN [[bounces]] > 0 THEN [[bounces]] - 1 ELSE 0 END'),
             ], [
@@ -174,7 +195,8 @@ class TrackingService extends Component
 
         if ($time > 0) {
             $logger->startTimer('updateTimeOnPage');
-            Craft::$app->db->createCommand()
+            $db = Insights::getInstance()->database->getConnection();
+            $db->createCommand()
                 ->update(Constants::TABLE_PAGEVIEWS, [
                     'totalTimeOnPage' => new Expression("[[totalTimeOnPage]] + :time", [':time' => $time]),
                 ], [
@@ -264,16 +286,17 @@ class TrackingService extends Component
     private function trackReferrer(string $domain, int $siteId, string $date): void
     {
         $type = ReferrerType::fromDomain($domain);
+        $db = Insights::getInstance()->database->getConnection();
 
-        Db::upsert(Constants::TABLE_REFERRERS, [
+        Db::upsert(Constants::TABLE_REFERRERS, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'referrerDomain' => substr($domain, 0, 255),
             'referrerType' => $type->value,
             'visits' => 1,
-        ], [
+        ]), [
             'visits' => new Expression('[[visits]] + 1'),
-        ]);
+        ], [], true, $db);
     }
 
     /**
@@ -283,7 +306,9 @@ class TrackingService extends Component
      */
     private function trackCampaign(array $utm, int $siteId, string $date): void
     {
-        Db::upsert(Constants::TABLE_CAMPAIGNS, [
+        $db = Insights::getInstance()->database->getConnection();
+
+        Db::upsert(Constants::TABLE_CAMPAIGNS, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'utmSource' => !empty($utm['s']) ? substr($utm['s'], 0, 100) : null,
@@ -292,9 +317,9 @@ class TrackingService extends Component
             'utmTerm' => !empty($utm['t']) ? substr($utm['t'], 0, 100) : null,
             'utmContent' => !empty($utm['n']) ? substr($utm['n'], 0, 100) : null,
             'visits' => 1,
-        ], [
+        ]), [
             'visits' => new Expression('[[visits]] + 1'),
-        ]);
+        ], [], true, $db);
     }
 
     /**
@@ -308,17 +333,18 @@ class TrackingService extends Component
             $deviceType = DeviceType::fromBrowserType($parser->device->type);
             $browserFamily = $parser->browser->name ?: Constants::DEFAULT_UNKNOWN;
             $osFamily = $parser->os->name ?: Constants::DEFAULT_UNKNOWN;
+            $db = Insights::getInstance()->database->getConnection();
 
-            Db::upsert(Constants::TABLE_DEVICES, [
+            Db::upsert(Constants::TABLE_DEVICES, $this->withTimestamps([
                 'siteId' => $siteId,
                 'date' => $date,
                 'deviceType' => $deviceType->value,
                 'browserFamily' => substr($browserFamily, 0, 50),
                 'osFamily' => substr($osFamily, 0, 50),
                 'visits' => 1,
-            ], [
+            ]), [
                 'visits' => new Expression('[[visits]] + 1'),
-            ]);
+            ], [], true, $db);
         } catch (\Throwable) {
             // Silently ignore parsing errors
         }
@@ -329,14 +355,16 @@ class TrackingService extends Component
      */
     private function trackCountry(string $countryCode, int $siteId, string $date): void
     {
-        Db::upsert(Constants::TABLE_COUNTRIES, [
+        $db = Insights::getInstance()->database->getConnection();
+
+        Db::upsert(Constants::TABLE_COUNTRIES, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'countryCode' => $countryCode,
             'visits' => 1,
-        ], [
+        ]), [
             'visits' => new Expression('[[visits]] + 1'),
-        ]);
+        ], [], true, $db);
     }
 
     /**
@@ -348,13 +376,14 @@ class TrackingService extends Component
     private function updateRealtime(string $hash, string $url, int $siteId): void
     {
         $settings = Insights::getInstance()->getSettings();
+        $db = Insights::getInstance()->database->getConnection();
 
         // Throttle cleanup to once every 60 seconds using atomic add()
         $cleanupKey = Constants::CACHE_VISITOR . 'realtime_cleanup';
         if (Craft::$app->cache->add($cleanupKey, 1, 60)) {
             // We got the lock, perform cleanup
             $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
-            Craft::$app->db->createCommand()
+            $db->createCommand()
                 ->delete(Constants::TABLE_REALTIME, ['<', 'lastSeen', $cutoff])
                 ->execute();
         }
@@ -370,7 +399,7 @@ class TrackingService extends Component
         ], [
             'currentUrl' => $url,
             'lastSeen' => $now,
-        ]);
+        ], [], true, $db);
     }
 
     /**
@@ -410,7 +439,8 @@ class TrackingService extends Component
 
         // Aggregate event (UPSERT)
         $logger->startTimer('upsertEvent');
-        Db::upsert(Constants::TABLE_EVENTS, [
+        $db = Insights::getInstance()->database->getConnection();
+        Db::upsert(Constants::TABLE_EVENTS, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'hour' => $hour,
@@ -419,12 +449,12 @@ class TrackingService extends Component
             'url' => $url,
             'count' => 1,
             'uniqueVisitors' => $isNew ? 1 : 0,
-        ], [
+        ]), [
             'count' => new Expression('[[count]] + 1'),
             'uniqueVisitors' => $isNew
                 ? new Expression('[[uniqueVisitors]] + 1')
                 : new Expression('[[uniqueVisitors]]'),
-        ]);
+        ], [], true, $db);
         $logger->stopTimer('upsertEvent');
 
         $logger->endFeature('CustomEvent', ['name' => $eventName, 'isNew' => $isNew]);
@@ -476,7 +506,8 @@ class TrackingService extends Component
 
         // Aggregate outbound click (UPSERT)
         $logger->startTimer('upsertOutbound');
-        Db::upsert(Constants::TABLE_OUTBOUND, [
+        $db = Insights::getInstance()->database->getConnection();
+        Db::upsert(Constants::TABLE_OUTBOUND, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'hour' => $hour,
@@ -487,13 +518,13 @@ class TrackingService extends Component
             'urlHash' => $urlHash,
             'clicks' => 1,
             'uniqueVisitors' => $isNew ? 1 : 0,
-        ], [
+        ]), [
             'clicks' => new Expression('[[clicks]] + 1'),
             'uniqueVisitors' => $isNew
                 ? new Expression('[[uniqueVisitors]] + 1')
                 : new Expression('[[uniqueVisitors]]'),
             'linkText' => $linkText,
-        ]);
+        ], [], true, $db);
         $logger->stopTimer('upsertOutbound');
 
         $logger->endFeature('OutboundLink', ['targetDomain' => $targetDomain, 'isNew' => $isNew]);
@@ -553,7 +584,8 @@ class TrackingService extends Component
 
         // Aggregate search (UPSERT)
         $logger->startTimer('upsertSearch');
-        Db::upsert(Constants::TABLE_SEARCHES, [
+        $db = Insights::getInstance()->database->getConnection();
+        Db::upsert(Constants::TABLE_SEARCHES, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'hour' => $hour,
@@ -561,13 +593,13 @@ class TrackingService extends Component
             'resultsCount' => $resultsCount,
             'searches' => 1,
             'uniqueVisitors' => $isNew ? 1 : 0,
-        ], [
+        ]), [
             'searches' => new Expression('[[searches]] + 1'),
             'uniqueVisitors' => $isNew
                 ? new Expression('[[uniqueVisitors]] + 1')
                 : new Expression('[[uniqueVisitors]]'),
             'resultsCount' => $resultsCount,
-        ]);
+        ], [], true, $db);
         $logger->stopTimer('upsertSearch');
 
         $logger->endFeature('SiteSearch', ['searchTerm' => $searchTerm, 'isNew' => $isNew]);
@@ -628,7 +660,8 @@ class TrackingService extends Component
         $column = $milestone->column();
 
         $logger->startTimer('upsertScrollDepth');
-        Db::upsert(Constants::TABLE_SCROLL_DEPTH, [
+        $db = Insights::getInstance()->database->getConnection();
+        Db::upsert(Constants::TABLE_SCROLL_DEPTH, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'hour' => $hour,
@@ -638,9 +671,9 @@ class TrackingService extends Component
             'milestone50' => $milestone === ScrollDepthMilestone::Percent50 ? 1 : 0,
             'milestone75' => $milestone === ScrollDepthMilestone::Percent75 ? 1 : 0,
             'milestone100' => $milestone === ScrollDepthMilestone::Percent100 ? 1 : 0,
-        ], [
+        ]), [
             $column => new Expression("[[{$column}]] + 1"),
-        ]);
+        ], [], true, $db);
         $logger->stopTimer('upsertScrollDepth');
 
         $logger->endFeature('ScrollDepth', ['url' => $url, 'milestone' => $milestone->label()]);
@@ -674,6 +707,7 @@ class TrackingService extends Component
 
         // Find most recent active session for this visitor (within timeout window)
         $logger->startTimer('findSession');
+        $db = Insights::getInstance()->database->getConnection();
         $existingSession = (new \craft\db\Query())
             ->select(['id', 'sessionId', 'pageCount', 'entryUrl', 'entryEntryId', 'lastActivityTime'])
             ->from(Constants::TABLE_SESSIONS)
@@ -683,13 +717,13 @@ class TrackingService extends Component
             ])
             ->andWhere(['>=', 'lastActivityTime', $cutoffTime])
             ->orderBy(['lastActivityTime' => SORT_DESC])
-            ->one();
+            ->one($db);
         $logger->stopTimer('findSession');
 
         if ($existingSession) {
             // Session is still active - update it
             $logger->startTimer('updateSession');
-            Craft::$app->db->createCommand()
+            $db->createCommand()
                 ->update(Constants::TABLE_SESSIONS, [
                     'pageCount' => new Expression('[[pageCount]] + 1'),
                     'exitUrl' => $url,
@@ -727,8 +761,9 @@ class TrackingService extends Component
 
         // Generate a unique session ID server-side
         $sessionId = bin2hex(random_bytes(16));
+        $db = Insights::getInstance()->database->getConnection();
 
-        Craft::$app->db->createCommand()->insert(Constants::TABLE_SESSIONS, [
+        $db->createCommand()->insert(Constants::TABLE_SESSIONS, $this->withTimestamps([
             'siteId' => $siteId,
             'date' => $date,
             'visitorHash' => $visitorHash,
@@ -740,7 +775,7 @@ class TrackingService extends Component
             'exitEntryId' => $entryId,
             'startTime' => $now,
             'lastActivityTime' => $now,
-        ])->execute();
+        ]))->execute();
 
         $logger->stopTimer('createSession');
         $logger->step('Session', 'Created new session', ['sessionId' => $sessionId]);

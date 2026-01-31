@@ -11,6 +11,9 @@ use samuelreichor\insights\enums\LogLevel;
  */
 class Settings extends Model
 {
+    // External Database
+    public bool $useExternalDatabase = false;
+
     // Tracking
     public bool $enabled = true;
 
@@ -92,7 +95,7 @@ class Settings extends Model
     public function rules(): array
     {
         return [
-            [['enabled'], 'boolean'],
+            [['enabled', 'useExternalDatabase'], 'boolean'],
             [['respectDoNotTrack', 'excludeLoggedInUsers'], 'boolean'],
             [['autoCleanup', 'useQueue', 'showRealtimeWidget', 'showEntrySidebar'], 'boolean'],
             [['dataRetentionDays'], 'integer', 'min' => 1, 'max' => 730],

@@ -19,6 +19,7 @@ use samuelreichor\insights\enums\Permission;
 use samuelreichor\insights\fields\InsightsField;
 use samuelreichor\insights\models\Settings;
 use samuelreichor\insights\services\CleanupService;
+use samuelreichor\insights\services\DatabaseService;
 use samuelreichor\insights\services\GeoIpService;
 use samuelreichor\insights\services\LoggerService;
 use samuelreichor\insights\services\StatsService;
@@ -44,6 +45,7 @@ use yii\log\FileTarget;
  * @property-read TrackingService $tracking
  * @property-read StatsService $stats
  * @property-read CleanupService $cleanup
+ * @property-read DatabaseService $database
  * @author Samuel Reichör <samuelreichor@gmail.com>
  * @copyright Samuel Reichör
  * @license https://craftcms.github.io/license/ Craft License
@@ -80,6 +82,7 @@ class Insights extends Plugin
                 'tracking' => TrackingService::class,
                 'stats' => StatsService::class,
                 'cleanup' => CleanupService::class,
+                'database' => DatabaseService::class,
             ],
         ];
     }
@@ -409,10 +412,9 @@ class Insights extends Plugin
         }
 
         // Check if plugin is fully installed (all tables exist)
-        foreach (Constants::getAllTables() as $table) {
-            if (!Craft::$app->db->tableExists($table)) {
-                return;
-            }
+        // Use the database service to check in the correct database
+        if (!$this->database->tablesExist()) {
+            return;
         }
 
         // Run cleanup once per day using cache
