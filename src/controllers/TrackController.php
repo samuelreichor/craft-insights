@@ -109,14 +109,19 @@ class TrackController extends Controller
 
         // Process tracking (via Queue for performance or synchronously)
         if ($settings->useQueue) {
-            Craft::$app->queue->push(new ProcessTrackingJob([
+            $queue = Insights::getInstance()->getQueue();
+            $job = new ProcessTrackingJob([
                 'type' => $data['t'] ?? EventType::Pageview->value,
                 'data' => $data,
                 'userAgent' => $userAgent,
                 'ip' => $ip, // Used only for GeoIP, not stored!
                 'siteId' => $siteId,
                 'acceptLanguage' => $acceptLanguage,
-            ]));
+            ]);
+
+            // lower number = higher priority (Craft default: 1024)
+            $queue->priority($settings->processTrackingJobPriority)->push($job);
+
             $logger->debug('Queue job created', ['type' => $data['t'] ?? 'pv', 'siteId' => $siteId]);
         } else {
             // Process synchronously for simpler setups
