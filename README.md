@@ -32,6 +32,7 @@
 - **Real-time Visitors**: See who's on your site right now
 - **Entry Sidebar**: Quick stats directly in your entry editor
 - **Data Export**: Download your data as CSV or JSON
+- **Custom Queue**: Separate analytics jobs from your main queue
 - **Campaign Tracking** (Pro): Full UTM parameter support
 - **Country Tracking** (Pro): GeoIP lookup with immediate IP discard
 - **Custom Events** (Pro): Track clicks, form submissions, and downloads
@@ -39,6 +40,7 @@
 - **Site Search Analytics** (Pro): Understand what visitors are searching for
 - **Scroll Depth Tracking** (Pro): See how far users scroll on each page
 - **Session Insights** (Pro): Entry/exit pages and pages per session analytics
+- **External Database** (Pro): Store analytics data in a separate database
 
 ## Requirements
 
