@@ -14,12 +14,47 @@ class Install extends Migration
     {
         $this->createTables();
         $this->createIndexes();
-        $this->addForeignKeys();
+
+        // Only add foreign keys if using Craft's internal database
+        // External databases don't have the Craft tables to reference
+        if (!$this->isUsingExternalDatabase()) {
+            $this->addForeignKeys();
+        }
 
         return true;
     }
 
+    /**
+     * Check if using external database.
+     * This is determined by checking if $this->db differs from Craft's default DB.
+     * When running via `php craft insights/database/migrate`, the DatabaseController
+     * sets $this->db to the external connection.
+     */
+    private function isUsingExternalDatabase(): bool
+    {
+        // If $this->db is set and differs from Craft's default DB, we're using external
+        if ($this->db !== null && $this->db !== \Craft::$app->db) {
+            return true;
+        }
+
+        return false;
+    }
+
     public function safeDown(): bool
+    {
+        // Drop tables from Craft's database
+        $this->dropTables();
+
+        // Also drop tables from external database if configured
+        $this->dropExternalTables();
+
+        return true;
+    }
+
+    /**
+     * Drop all Insights tables from the current database connection.
+     */
+    private function dropTables(): void
     {
         $this->dropTableIfExists(Constants::TABLE_SESSIONS);
         $this->dropTableIfExists(Constants::TABLE_SCROLL_DEPTH);
@@ -32,8 +67,29 @@ class Install extends Migration
         $this->dropTableIfExists(Constants::TABLE_CAMPAIGNS);
         $this->dropTableIfExists(Constants::TABLE_REFERRERS);
         $this->dropTableIfExists(Constants::TABLE_PAGEVIEWS);
+    }
 
-        return true;
+    /**
+     * Drop tables from external database if configured.
+     */
+    private function dropExternalTables(): void
+    {
+        // Check if external DB component exists
+        if (!\Craft::$app->has('insightsDb')) {
+            return;
+        }
+
+        try {
+            $externalDb = \Craft::$app->get('insightsDb');
+
+            foreach (Constants::getAllTables() as $table) {
+                if ($externalDb->tableExists($table)) {
+                    $externalDb->createCommand()->dropTable($table)->execute();
+                }
+            }
+        } catch (\Throwable) {
+            // Silently ignore - external DB might not be accessible
+        }
     }
 
     private function createTables(): void

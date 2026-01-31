@@ -3,6 +3,7 @@
 namespace samuelreichor\insights\services;
 
 use craft\base\Component;
+use craft\db\Connection;
 use craft\db\Query;
 use DateTime;
 use samuelreichor\insights\Constants;
@@ -18,6 +19,14 @@ use samuelreichor\insights\Insights;
 class StatsService extends Component
 {
     /**
+     * Get the database connection for Insights data.
+     */
+    private function getDb(): Connection
+    {
+        return Insights::getInstance()->database->getConnection();
+    }
+
+    /**
      * Get summary statistics for a date range.
      *
      * @return array{pageviews: int, uniqueVisitors: int, bounceRate: float, avgTimeOnPage: float, pageviewsTrend: float, visitorsTrend: float}
@@ -26,6 +35,7 @@ class StatsService extends Component
     {
         [$startDate, $endDate] = $this->getDateRange($range);
         [$prevStartDate, $prevEndDate] = $this->getPreviousDateRange($range);
+        $db = $this->getDb();
 
         // Current period pageview stats
         $current = (new Query())
@@ -37,7 +47,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->one();
+            ->one($db);
 
         // Count unique visitors from sessions table (distinct visitor hashes)
         $uniqueVisitors = (int)(new Query())
@@ -46,7 +56,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->scalar();
+            ->scalar($db);
 
         // Count sessions and bounces (sessions with only 1 pageview)
         $sessionStats = (new Query())
@@ -58,7 +68,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->one();
+            ->one($db);
 
         // Previous period pageview stats for trend calculation
         $previous = (new Query())
@@ -69,7 +79,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $prevStartDate])
             ->andWhere(['<=', 'date', $prevEndDate])
-            ->one();
+            ->one($db);
 
         // Previous period unique visitors
         $prevVisitors = (int)(new Query())
@@ -78,7 +88,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $prevStartDate])
             ->andWhere(['<=', 'date', $prevEndDate])
-            ->scalar();
+            ->scalar($db);
 
         $pageviews = (int)($current['pageviews'] ?? 0);
         $totalTime = (int)($current['totalTime'] ?? 0);
@@ -112,6 +122,7 @@ class StatsService extends Component
     public function getChartData(int $siteId, string $range): array
     {
         [$startDate, $endDate] = $this->getDateRange($range);
+        $db = $this->getDb();
 
         // Get pageviews per day
         $pageviewsQuery = (new Query())
@@ -125,7 +136,7 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['date'])
             ->orderBy(['date' => SORT_ASC])
-            ->all();
+            ->all($db);
 
         // Get unique visitors per day from sessions table
         $visitorsQuery = (new Query())
@@ -139,7 +150,7 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['date'])
             ->orderBy(['date' => SORT_ASC])
-            ->all();
+            ->all($db);
 
         // Build data arrays
         $pageviewsData = [];
@@ -198,7 +209,7 @@ class StatsService extends Component
             ->groupBy(['url'])
             ->orderBy(['views' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -223,7 +234,7 @@ class StatsService extends Component
             ->groupBy(['referrerDomain', 'referrerType'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -252,7 +263,7 @@ class StatsService extends Component
             ->groupBy(['countryCode'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -275,7 +286,7 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['deviceType'])
             ->orderBy(['visits' => SORT_DESC])
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -299,7 +310,7 @@ class StatsService extends Component
             ->groupBy(['browserFamily'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit(10)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -323,7 +334,7 @@ class StatsService extends Component
             ->groupBy(['osFamily'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit(10)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -354,7 +365,7 @@ class StatsService extends Component
             ->groupBy(['utmSource', 'utmMedium', 'utmCampaign'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -366,12 +377,13 @@ class StatsService extends Component
     {
         $settings = Insights::getInstance()->getSettings();
         $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
+        $db = $this->getDb();
 
         $count = (new Query())
             ->from(Constants::TABLE_REALTIME)
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'lastSeen', $cutoff])
-            ->count();
+            ->count('*', $db);
 
         $pages = (new Query())
             ->select(['currentUrl as url', 'COUNT(*) as count'])
@@ -381,7 +393,7 @@ class StatsService extends Component
             ->groupBy(['currentUrl'])
             ->orderBy(['count' => SORT_DESC])
             ->limit(10)
-            ->all();
+            ->all($db);
 
         return [
             'count' => (int)$count,
@@ -409,7 +421,7 @@ class StatsService extends Component
             ->where(['entryId' => $entryId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->one();
+            ->one($this->getDb());
 
         $views = (int)($result['views'] ?? 0);
         $uniqueVisitors = (int)($result['uniqueVisitors'] ?? 0);
@@ -437,7 +449,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['currentUrl' => $url])
             ->andWhere(['>=', 'lastSeen', $cutoff])
-            ->count();
+            ->count('*', $this->getDb());
     }
 
     /**
@@ -459,7 +471,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId, 'date' => $today])
             ->groupBy(['hour'])
             ->orderBy(['hour' => SORT_ASC])
-            ->all();
+            ->all($this->getDb());
 
         // Fill all 24 hours
         $result = [];
@@ -537,7 +549,7 @@ class StatsService extends Component
             ->groupBy(['eventName', 'eventCategory'])
             ->orderBy(['count' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -568,7 +580,7 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['eventName', 'eventCategory', 'url'])
             ->orderBy(['count' => SORT_DESC])
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -598,7 +610,7 @@ class StatsService extends Component
             ->groupBy(['targetDomain'])
             ->orderBy(['clicks' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -630,7 +642,7 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['targetUrl', 'targetDomain', 'linkText', 'sourceUrl'])
             ->orderBy(['clicks' => SORT_DESC])
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -660,7 +672,7 @@ class StatsService extends Component
             ->groupBy(['searchTerm'])
             ->orderBy(['searches' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -690,7 +702,7 @@ class StatsService extends Component
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['searchTerm', 'resultsCount'])
             ->orderBy(['searches' => SORT_DESC])
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -729,7 +741,7 @@ class StatsService extends Component
             ->groupBy(['countryCode'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -748,7 +760,7 @@ class StatsService extends Component
             ->groupBy(['utmSource', 'utmMedium', 'utmCampaign'])
             ->orderBy(['visits' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -767,7 +779,7 @@ class StatsService extends Component
             ->groupBy(['eventName', 'eventCategory'])
             ->orderBy(['count' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -786,7 +798,7 @@ class StatsService extends Component
             ->groupBy(['targetDomain'])
             ->orderBy(['clicks' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -805,7 +817,7 @@ class StatsService extends Component
             ->groupBy(['searchTerm'])
             ->orderBy(['searches' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -839,7 +851,7 @@ class StatsService extends Component
             ->groupBy(['url'])
             ->orderBy(['milestone25' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -875,7 +887,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->one();
+            ->one($this->getDb());
 
         $m25 = (int)($result['m25'] ?? 0);
         $m50 = (int)($result['m50'] ?? 0);
@@ -910,6 +922,7 @@ class StatsService extends Component
     public function getPagesPerSession(int $siteId, string $range): array
     {
         [$startDate, $endDate] = $this->getDateRange($range);
+        $db = $this->getDb();
 
         $current = (new Query())
             ->select(['AVG([[pageCount]]) as avg'])
@@ -917,7 +930,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->scalar();
+            ->scalar($db);
 
         $avgPagesPerSession = round((float)($current ?? 0), 2);
 
@@ -932,7 +945,7 @@ class StatsService extends Component
                 ->where(['siteId' => $siteId])
                 ->andWhere(['>=', 'date', $prevStartDate])
                 ->andWhere(['<=', 'date', $prevEndDate])
-                ->scalar();
+                ->scalar($db);
 
             $prevAvg = (float)($previous ?? 0);
             if ($prevAvg > 0) {
@@ -977,7 +990,7 @@ class StatsService extends Component
             ->groupBy(['entryUrl'])
             ->orderBy(['sessions' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -1010,7 +1023,7 @@ class StatsService extends Component
             ->groupBy(['exitUrl'])
             ->orderBy(['sessions' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 
     /**
@@ -1027,7 +1040,7 @@ class StatsService extends Component
             ->where(['siteId' => $siteId])
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
-            ->count();
+            ->count('*', $this->getDb());
     }
 
     /**
@@ -1054,6 +1067,6 @@ class StatsService extends Component
             ->groupBy(['url'])
             ->orderBy(['milestone25' => SORT_DESC])
             ->limit($limit)
-            ->all();
+            ->all($this->getDb());
     }
 }

@@ -4,6 +4,7 @@ namespace samuelreichor\insights\services;
 
 use Craft;
 use craft\base\Component;
+use craft\db\Connection;
 use craft\db\Query;
 use samuelreichor\insights\Constants;
 use samuelreichor\insights\Insights;
@@ -16,6 +17,14 @@ use samuelreichor\insights\Insights;
 class CleanupService extends Component
 {
     /**
+     * Get the database connection for Insights data.
+     */
+    private function getDb(): Connection
+    {
+        return Insights::getInstance()->database->getConnection();
+    }
+
+    /**
      * Run cleanup for all tables based on data retention settings.
      *
      * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int}
@@ -27,6 +36,7 @@ class CleanupService extends Component
 
         $settings = Insights::getInstance()->getSettings();
         $cutoffDate = date('Y-m-d', strtotime("-{$settings->dataRetentionDays} days"));
+        $db = $this->getDb();
 
         $logger->step('Cleanup', 'Settings loaded', [
             'retentionDays' => $settings->dataRetentionDays,
@@ -49,35 +59,35 @@ class CleanupService extends Component
 
         // Clean pageviews
         $logger->startTimer('cleanPageviews');
-        $results['pageviews'] = Craft::$app->db->createCommand()
+        $results['pageviews'] = $db->createCommand()
             ->delete(Constants::TABLE_PAGEVIEWS, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanPageviews', ['deleted' => $results['pageviews']]);
 
         // Clean referrers
         $logger->startTimer('cleanReferrers');
-        $results['referrers'] = Craft::$app->db->createCommand()
+        $results['referrers'] = $db->createCommand()
             ->delete(Constants::TABLE_REFERRERS, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanReferrers', ['deleted' => $results['referrers']]);
 
         // Clean campaigns
         $logger->startTimer('cleanCampaigns');
-        $results['campaigns'] = Craft::$app->db->createCommand()
+        $results['campaigns'] = $db->createCommand()
             ->delete(Constants::TABLE_CAMPAIGNS, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanCampaigns', ['deleted' => $results['campaigns']]);
 
         // Clean devices
         $logger->startTimer('cleanDevices');
-        $results['devices'] = Craft::$app->db->createCommand()
+        $results['devices'] = $db->createCommand()
             ->delete(Constants::TABLE_DEVICES, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanDevices', ['deleted' => $results['devices']]);
 
         // Clean countries
         $logger->startTimer('cleanCountries');
-        $results['countries'] = Craft::$app->db->createCommand()
+        $results['countries'] = $db->createCommand()
             ->delete(Constants::TABLE_COUNTRIES, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanCountries', ['deleted' => $results['countries']]);
@@ -85,40 +95,40 @@ class CleanupService extends Component
         // Clean realtime (always clean old entries)
         $realtimeCutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
         $logger->startTimer('cleanRealtime');
-        $results['realtime'] = Craft::$app->db->createCommand()
+        $results['realtime'] = $db->createCommand()
             ->delete(Constants::TABLE_REALTIME, ['<', 'lastSeen', $realtimeCutoff])
             ->execute();
         $logger->stopTimer('cleanRealtime', ['deleted' => $results['realtime']]);
 
         // Clean Pro tables (events, outbound, searches)
         $logger->startTimer('cleanEvents');
-        $results['events'] = Craft::$app->db->createCommand()
+        $results['events'] = $db->createCommand()
             ->delete(Constants::TABLE_EVENTS, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanEvents', ['deleted' => $results['events']]);
 
         $logger->startTimer('cleanOutbound');
-        $results['outbound'] = Craft::$app->db->createCommand()
+        $results['outbound'] = $db->createCommand()
             ->delete(Constants::TABLE_OUTBOUND, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanOutbound', ['deleted' => $results['outbound']]);
 
         $logger->startTimer('cleanSearches');
-        $results['searches'] = Craft::$app->db->createCommand()
+        $results['searches'] = $db->createCommand()
             ->delete(Constants::TABLE_SEARCHES, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanSearches', ['deleted' => $results['searches']]);
 
         // Clean scroll depth
         $logger->startTimer('cleanScrollDepth');
-        $results['scrollDepth'] = Craft::$app->db->createCommand()
+        $results['scrollDepth'] = $db->createCommand()
             ->delete(Constants::TABLE_SCROLL_DEPTH, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanScrollDepth', ['deleted' => $results['scrollDepth']]);
 
         // Clean sessions
         $logger->startTimer('cleanSessions');
-        $results['sessions'] = Craft::$app->db->createCommand()
+        $results['sessions'] = $db->createCommand()
             ->delete(Constants::TABLE_SESSIONS, ['<', 'date', $cutoffDate])
             ->execute();
         $logger->stopTimer('cleanSessions', ['deleted' => $results['sessions']]);
@@ -141,7 +151,7 @@ class CleanupService extends Component
         $settings = Insights::getInstance()->getSettings();
         $cutoff = date('Y-m-d H:i:s', strtotime("-{$settings->realtimeTtl} seconds"));
 
-        return Craft::$app->db->createCommand()
+        return $this->getDb()->createCommand()
             ->delete(Constants::TABLE_REALTIME, ['<', 'lastSeen', $cutoff])
             ->execute();
     }
@@ -153,52 +163,73 @@ class CleanupService extends Component
      */
     public function getStorageStats(): array
     {
+        $db = $this->getDb();
+
+        // Check if tables exist first (for external DB that may not be migrated yet)
+        if (!Insights::getInstance()->database->tablesExist()) {
+            return [
+                'pageviews' => 0,
+                'referrers' => 0,
+                'campaigns' => 0,
+                'devices' => 0,
+                'countries' => 0,
+                'realtime' => 0,
+                'events' => 0,
+                'outbound' => 0,
+                'searches' => 0,
+                'scrollDepth' => 0,
+                'sessions' => 0,
+                'oldestDate' => null,
+                'newestDate' => null,
+            ];
+        }
+
         $stats = [
             'pageviews' => (int)(new Query())
                 ->from(Constants::TABLE_PAGEVIEWS)
-                ->count(),
+                ->count('*', $db),
             'referrers' => (int)(new Query())
                 ->from(Constants::TABLE_REFERRERS)
-                ->count(),
+                ->count('*', $db),
             'campaigns' => (int)(new Query())
                 ->from(Constants::TABLE_CAMPAIGNS)
-                ->count(),
+                ->count('*', $db),
             'devices' => (int)(new Query())
                 ->from(Constants::TABLE_DEVICES)
-                ->count(),
+                ->count('*', $db),
             'countries' => (int)(new Query())
                 ->from(Constants::TABLE_COUNTRIES)
-                ->count(),
+                ->count('*', $db),
             'realtime' => (int)(new Query())
                 ->from(Constants::TABLE_REALTIME)
-                ->count(),
+                ->count('*', $db),
             'events' => (int)(new Query())
                 ->from(Constants::TABLE_EVENTS)
-                ->count(),
+                ->count('*', $db),
             'outbound' => (int)(new Query())
                 ->from(Constants::TABLE_OUTBOUND)
-                ->count(),
+                ->count('*', $db),
             'searches' => (int)(new Query())
                 ->from(Constants::TABLE_SEARCHES)
-                ->count(),
+                ->count('*', $db),
             'scrollDepth' => (int)(new Query())
                 ->from(Constants::TABLE_SCROLL_DEPTH)
-                ->count(),
+                ->count('*', $db),
             'sessions' => (int)(new Query())
                 ->from(Constants::TABLE_SESSIONS)
-                ->count(),
+                ->count('*', $db),
         ];
 
         // Get date range
         $oldest = (new Query())
             ->select(['MIN([[date]]) as oldest'])
             ->from(Constants::TABLE_PAGEVIEWS)
-            ->scalar();
+            ->scalar($db);
 
         $newest = (new Query())
             ->select(['MAX([[date]]) as newest'])
             ->from(Constants::TABLE_PAGEVIEWS)
-            ->scalar();
+            ->scalar($db);
 
         $stats['oldestDate'] = $oldest ?: null;
         $stats['newestDate'] = $newest ?: null;
@@ -212,14 +243,15 @@ class CleanupService extends Component
     public function deleteAllDataForSite(int $siteId): int
     {
         $total = 0;
+        $db = $this->getDb();
 
         foreach (Constants::getAllTables() as $table) {
-            $total += Craft::$app->db->createCommand()
+            $total += $db->createCommand()
                 ->delete($table, ['siteId' => $siteId])
                 ->execute();
         }
 
-        Craft::info("Deleted all Insights data for site {$siteId}. Total: {$total} records.", 'insights');
+        Insights::getInstance()->logger->info("Deleted all Insights data for site {$siteId}. Total: {$total} records.");
 
         return $total;
     }
