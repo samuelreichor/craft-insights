@@ -3,7 +3,7 @@
   "description": "GDPR compliant analytics for Craft CMS",
   "type": "craft-plugin",
   "license": "proprietary",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "support": {
     "email": "samuelreichor@gmail.com",
     "issues": "https://github.com/samuelreichor/craft-insights/issues?state=open",
