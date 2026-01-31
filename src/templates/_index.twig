@@ -206,7 +206,7 @@
         {% if currentUser.can('insights:viewDashboardDevices') %}
         <div class="insights-table-container">
             <div class="insights-table-header">
-                <h2>{{ 'Devices & Browsers'|t('insights') }}</h2>
+                <h2>{{ 'Technology'|t('insights') }}</h2>
             </div>
             {% if devices|length %}
             <table class="insights-table" id="table-devices">
@@ -238,6 +238,23 @@
                     <tr>
                         <td>{{ browser.browserFamily ?? 'Unknown' }}</td>
                         <td class="number">{{ browser.visits|number_format }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--insights-gray-200);">
+            <table class="insights-table" id="table-os">
+                <thead>
+                    <tr>
+                        <th>{{ 'Operating System'|t('insights') }}</th>
+                        <th class="number">{{ 'Visits'|t('insights') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for os in operatingSystems|slice(0, 5) %}
+                    <tr>
+                        <td>{{ os.osFamily ?? 'Unknown' }}</td>
+                        <td class="number">{{ os.visits|number_format }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

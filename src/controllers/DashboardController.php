@@ -47,6 +47,7 @@ class DashboardController extends Controller
             'topSearches' => $stats->getTopSearches($siteId, $range, 10),
             'devices' => $stats->getDeviceBreakdown($siteId, $range),
             'browsers' => $stats->getBrowserBreakdown($siteId, $range),
+            'operatingSystems' => $stats->getOsBreakdown($siteId, $range),
             'realtime' => $stats->getRealtimeVisitors($siteId),
             'pagesPerSession' => $stats->getPagesPerSession($siteId, $range),
             'topEntryPages' => $stats->getTopEntryPages($siteId, $range, 10),
@@ -152,10 +153,11 @@ class DashboardController extends Controller
             $data['topReferrers'] = $stats->getTopReferrers($siteId, $range, 10);
         }
 
-        // Devices & Browsers
+        // Devices, Browsers & Operating Systems
         if ($user->can(Permission::ViewDashboardDevices->value)) {
             $data['devices'] = $stats->getDeviceBreakdown($siteId, $range);
             $data['browsers'] = $stats->getBrowserBreakdown($siteId, $range);
+            $data['operatingSystems'] = $stats->getOsBreakdown($siteId, $range);
         }
 
         // Pages per Session (available to all users, trend is Pro-only)

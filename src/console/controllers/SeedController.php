@@ -4,6 +4,7 @@ namespace samuelreichor\insights\console\controllers;
 
 use Craft;
 use craft\console\Controller;
+use craft\helpers\StringHelper;
 use samuelreichor\insights\Constants;
 use samuelreichor\insights\Insights;
 use yii\console\ExitCode;
@@ -104,7 +105,7 @@ class SeedController extends Controller
             '/faq' => 25,
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -125,18 +126,19 @@ class SeedController extends Controller
                     if ($hourViews > 0) {
                         $db->createCommand()->upsert(
                             Constants::TABLE_PAGEVIEWS,
-                            [
+                            array_merge([
                                 'siteId' => $siteId,
                                 'date' => $date,
                                 'hour' => $h,
                                 'url' => $url,
                                 'entryId' => null,
-                            ],
+                            ], $this->getTimestampFields()),
                             [
                                 'views' => $hourViews,
                                 'uniqueVisitors' => (int)round($hourViews * 0.75),
                                 'bounces' => (int)round($hourViews * 0.4),
                                 'totalTimeOnPage' => $hourViews * mt_rand(30, 120),
+                                'dateUpdated' => date('Y-m-d H:i:s'),
                             ]
                         )->execute();
                         $count++;
@@ -165,7 +167,7 @@ class SeedController extends Controller
             ['domain' => 'partner-site.com', 'type' => 'referral', 'weight' => 3],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -177,14 +179,15 @@ class SeedController extends Controller
                 if ($visits > 0) {
                     $db->createCommand()->upsert(
                         Constants::TABLE_REFERRERS,
-                        [
+                        array_merge([
                             'siteId' => $siteId,
                             'date' => $date,
                             'referrerDomain' => $ref['domain'],
                             'referrerType' => $ref['type'],
-                        ],
+                        ], $this->getTimestampFields()),
                         [
                             'visits' => $visits,
+                            'dateUpdated' => date('Y-m-d H:i:s'),
                         ]
                     )->execute();
                     $count++;
@@ -208,7 +211,7 @@ class SeedController extends Controller
             ['source' => 'linkedin', 'medium' => 'social', 'campaign' => 'b2b-outreach', 'weight' => 8],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -220,15 +223,16 @@ class SeedController extends Controller
                 if ($visits > 0) {
                     $db->createCommand()->upsert(
                         Constants::TABLE_CAMPAIGNS,
-                        [
+                        array_merge([
                             'siteId' => $siteId,
                             'date' => $date,
                             'utmSource' => $c['source'],
                             'utmMedium' => $c['medium'],
                             'utmCampaign' => $c['campaign'],
-                        ],
+                        ], $this->getTimestampFields()),
                         [
                             'visits' => $visits,
+                            'dateUpdated' => date('Y-m-d H:i:s'),
                         ]
                     )->execute();
                     $count++;
@@ -245,16 +249,20 @@ class SeedController extends Controller
 
         $devices = [
             ['type' => 'desktop', 'browser' => 'Chrome', 'os' => 'Windows', 'weight' => 35],
-            ['type' => 'desktop', 'browser' => 'Chrome', 'os' => 'macOS', 'weight' => 15],
+            ['type' => 'desktop', 'browser' => 'Chrome', 'os' => 'OS X', 'weight' => 15],
+            ['type' => 'desktop', 'browser' => 'Chrome', 'os' => 'Linux', 'weight' => 6],
             ['type' => 'desktop', 'browser' => 'Firefox', 'os' => 'Windows', 'weight' => 10],
-            ['type' => 'desktop', 'browser' => 'Safari', 'os' => 'macOS', 'weight' => 12],
+            ['type' => 'desktop', 'browser' => 'Firefox', 'os' => 'Linux', 'weight' => 4],
+            ['type' => 'desktop', 'browser' => 'Safari', 'os' => 'OS X', 'weight' => 12],
             ['type' => 'desktop', 'browser' => 'Edge', 'os' => 'Windows', 'weight' => 8],
             ['type' => 'mobile', 'browser' => 'Safari', 'os' => 'iOS', 'weight' => 25],
             ['type' => 'mobile', 'browser' => 'Chrome', 'os' => 'Android', 'weight' => 18],
+            ['type' => 'mobile', 'browser' => 'Samsung Internet', 'os' => 'Android', 'weight' => 5],
             ['type' => 'tablet', 'browser' => 'Safari', 'os' => 'iOS', 'weight' => 5],
+            ['type' => 'tablet', 'browser' => 'Chrome', 'os' => 'Android', 'weight' => 3],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -266,15 +274,16 @@ class SeedController extends Controller
                 if ($visits > 0) {
                     $db->createCommand()->upsert(
                         Constants::TABLE_DEVICES,
-                        [
+                        array_merge([
                             'siteId' => $siteId,
                             'date' => $date,
                             'deviceType' => $dev['type'],
                             'browserFamily' => $dev['browser'],
                             'osFamily' => $dev['os'],
-                        ],
+                        ], $this->getTimestampFields()),
                         [
                             'visits' => $visits,
+                            'dateUpdated' => date('Y-m-d H:i:s'),
                         ]
                     )->execute();
                     $count++;
@@ -302,7 +311,7 @@ class SeedController extends Controller
             ['code' => 'PL', 'weight' => 2],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -314,13 +323,14 @@ class SeedController extends Controller
                 if ($visits > 0) {
                     $db->createCommand()->upsert(
                         Constants::TABLE_COUNTRIES,
-                        [
+                        array_merge([
                             'siteId' => $siteId,
                             'date' => $date,
                             'countryCode' => $c['code'],
-                        ],
+                        ], $this->getTimestampFields()),
                         [
                             'visits' => $visits,
+                            'dateUpdated' => date('Y-m-d H:i:s'),
                         ]
                     )->execute();
                     $count++;
@@ -355,7 +365,7 @@ class SeedController extends Controller
             ['name' => 'add_to_cart', 'category' => 'conversion', 'url' => '/products/item-2', 'weight' => 5],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -375,17 +385,18 @@ class SeedController extends Controller
                         if ($hourCount > 0) {
                             $db->createCommand()->upsert(
                                 Constants::TABLE_EVENTS,
-                                [
+                                array_merge([
                                     'siteId' => $siteId,
                                     'date' => $date,
                                     'hour' => $h,
                                     'eventName' => $event['name'],
                                     'eventCategory' => $event['category'],
                                     'url' => $event['url'],
-                                ],
+                                ], $this->getTimestampFields()),
                                 [
                                     'count' => $hourCount,
                                     'uniqueVisitors' => (int)round($hourCount * 0.7),
+                                    'dateUpdated' => date('Y-m-d H:i:s'),
                                 ]
                             )->execute();
                             $count++;
@@ -413,7 +424,7 @@ class SeedController extends Controller
             ['domain' => 'plugins.craftcms.com', 'url' => 'https://plugins.craftcms.com', 'source' => '/products', 'weight' => 14],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -434,7 +445,7 @@ class SeedController extends Controller
                             $urlHash = md5($link['url'] . $link['source']);
                             $db->createCommand()->upsert(
                                 Constants::TABLE_OUTBOUND,
-                                [
+                                array_merge([
                                     'siteId' => $siteId,
                                     'date' => $date,
                                     'hour' => $h,
@@ -444,10 +455,11 @@ class SeedController extends Controller
                                     'sourceUrl' => $link['source'],
                                     'clicks' => $hourClicks,
                                     'uniqueVisitors' => (int)round($hourClicks * 0.75),
-                                ],
+                                ], $this->getTimestampFields()),
                                 [
                                     'clicks' => $hourClicks,
                                     'uniqueVisitors' => (int)round($hourClicks * 0.75),
+                                    'dateUpdated' => date('Y-m-d H:i:s'),
                                 ]
                             )->execute();
                             $count++;
@@ -479,7 +491,7 @@ class SeedController extends Controller
             ['term' => 'examples', 'weight' => 9],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -499,7 +511,7 @@ class SeedController extends Controller
                         if ($hourSearches > 0) {
                             $db->createCommand()->upsert(
                                 Constants::TABLE_SEARCHES,
-                                [
+                                array_merge([
                                     'siteId' => $siteId,
                                     'date' => $date,
                                     'hour' => $h,
@@ -507,10 +519,11 @@ class SeedController extends Controller
                                     'searches' => $hourSearches,
                                     'uniqueVisitors' => (int)round($hourSearches * 0.8),
                                     'resultsCount' => mt_rand(1, 50),
-                                ],
+                                ], $this->getTimestampFields()),
                                 [
                                     'searches' => $hourSearches,
                                     'uniqueVisitors' => (int)round($hourSearches * 0.8),
+                                    'dateUpdated' => date('Y-m-d H:i:s'),
                                 ]
                             )->execute();
                             $count++;
@@ -541,7 +554,7 @@ class SeedController extends Controller
             ['url' => '/faq', 'base25' => 82, 'base50' => 65, 'base75' => 50, 'base100' => 35],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -562,7 +575,7 @@ class SeedController extends Controller
                     if ($milestone25 > 0) {
                         $db->createCommand()->upsert(
                             Constants::TABLE_SCROLL_DEPTH,
-                            [
+                            array_merge([
                                 'siteId' => $siteId,
                                 'date' => $date,
                                 'hour' => $h,
@@ -571,12 +584,13 @@ class SeedController extends Controller
                                 'milestone50' => $milestone50,
                                 'milestone75' => $milestone75,
                                 'milestone100' => $milestone100,
-                            ],
+                            ], $this->getTimestampFields()),
                             [
                                 'milestone25' => $milestone25,
                                 'milestone50' => $milestone50,
                                 'milestone75' => $milestone75,
                                 'milestone100' => $milestone100,
+                                'dateUpdated' => date('Y-m-d H:i:s'),
                             ]
                         )->execute();
                         $count++;
@@ -610,7 +624,7 @@ class SeedController extends Controller
             ['url' => '/faq', 'weight' => 10],
         ];
 
-        $db = Craft::$app->getDb();
+        $db = Insights::getInstance()->database->getConnection();
         $count = 0;
 
         for ($d = $this->days; $d >= 0; $d--) {
@@ -635,7 +649,7 @@ class SeedController extends Controller
 
                 $db->createCommand()->upsert(
                     Constants::TABLE_SESSIONS,
-                    [
+                    array_merge([
                         'siteId' => $siteId,
                         'visitorHash' => $visitorHash,
                         'sessionId' => $sessionId,
@@ -645,11 +659,12 @@ class SeedController extends Controller
                         'exitUrl' => $exitPage['url'],
                         'startTime' => $startTime,
                         'lastActivityTime' => $lastActivityTime,
-                    ],
+                    ], $this->getTimestampFields()),
                     [
                         'pageCount' => $pageCount,
                         'exitUrl' => $exitPage['url'],
                         'lastActivityTime' => $lastActivityTime,
+                        'dateUpdated' => date('Y-m-d H:i:s'),
                     ]
                 )->execute();
                 $count++;
@@ -718,5 +733,20 @@ class SeedController extends Controller
         ];
 
         return $factors[$hour] ?? 0.04;
+    }
+
+    /**
+     * Get timestamp fields for database inserts.
+     *
+     * @return array{dateCreated: string, dateUpdated: string, uid: string}
+     */
+    private function getTimestampFields(): array
+    {
+        $now = date('Y-m-d H:i:s');
+        return [
+            'dateCreated' => $now,
+            'dateUpdated' => $now,
+            'uid' => StringHelper::UUID(),
+        ];
     }
 }
