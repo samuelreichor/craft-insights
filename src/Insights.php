@@ -11,6 +11,7 @@ use craft\events\DefineHtmlEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
+use craft\helpers\UrlHelper;
 use craft\queue\Queue;
 use craft\services\Dashboard;
 use craft\services\Fields;
@@ -24,6 +25,7 @@ use samuelreichor\insights\services\CleanupService;
 use samuelreichor\insights\services\DatabaseService;
 use samuelreichor\insights\services\GeoIpService;
 use samuelreichor\insights\services\LoggerService;
+use samuelreichor\insights\services\NotificationService;
 use samuelreichor\insights\services\StatsService;
 use samuelreichor\insights\services\TrackingService;
 use samuelreichor\insights\services\VisitorService;
@@ -48,6 +50,7 @@ use yii\log\FileTarget;
  * @property-read StatsService $stats
  * @property-read CleanupService $cleanup
  * @property-read DatabaseService $database
+ * @property-read NotificationService $notifications
  * @author Samuel Reichör <samuelreichor@gmail.com>
  * @copyright Samuel Reichör
  * @license https://craftcms.github.io/license/ Craft License
@@ -57,7 +60,7 @@ class Insights extends Plugin
     public const EDITION_LITE = 'lite';
     public const EDITION_PRO = 'pro';
 
-    public string $schemaVersion = '1.0.1';
+    public string $schemaVersion = '1.2.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
 
@@ -115,6 +118,7 @@ class Insights extends Plugin
                 'stats' => StatsService::class,
                 'cleanup' => CleanupService::class,
                 'database' => DatabaseService::class,
+                'notifications' => NotificationService::class,
             ],
         ];
     }
@@ -129,6 +133,7 @@ class Insights extends Plugin
         // Deferred initialization
         Craft::$app->onInit(function() {
             $this->registerAutoCleanup();
+            $this->registerAutoNotifications();
         });
     }
 
@@ -284,12 +289,12 @@ class Insights extends Plugin
         return Craft::createObject(Settings::class);
     }
 
-    protected function settingsHtml(): ?string
+    /**
+     * @inheritdoc
+     */
+    public function getSettingsResponse(): mixed
     {
-        return Craft::$app->view->renderTemplate('insights/_settings.twig', [
-            'plugin' => $this,
-            'settings' => $this->getSettings(),
-        ]);
+        return Craft::$app->getResponse()->redirect(UrlHelper::cpUrl('insights/settings'));
     }
 
     private function attachEventHandlers(): void
@@ -309,6 +314,8 @@ class Insights extends Plugin
                 $event->rules['insights/countries'] = 'insights/dashboard/countries';
                 $event->rules['insights/entry-exit-pages'] = 'insights/dashboard/entry-exit-pages';
                 $event->rules['insights/scroll-depth'] = 'insights/dashboard/scroll-depth';
+                $event->rules['insights/settings'] = 'insights/settings/index';
+                $event->rules['insights/settings/save-settings'] = 'insights/settings/save-settings';
             }
         );
 
@@ -456,5 +463,21 @@ class Insights extends Plugin
             $this->cleanup->cleanup();
             Craft::$app->cache->set(Constants::CACHE_LAST_CLEANUP, time(), Constants::CLEANUP_INTERVAL);
         }
+    }
+
+    /**
+     * Piggyback a due-check for email notifications onto regular traffic.
+     *
+     * NotificationService::checkAndSend is throttled internally via a cache
+     * marker so it only does real work once per hour regardless of request
+     * volume.
+     */
+    private function registerAutoNotifications(): void
+    {
+        if (!$this->database->tablesExist()) {
+            return;
+        }
+
+        $this->notifications->checkAndSend();
     }
 }

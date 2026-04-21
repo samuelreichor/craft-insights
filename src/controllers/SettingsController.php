@@ -65,4 +65,29 @@ class SettingsController extends Controller
 
         return $this->asJson($result);
     }
+
+    /**
+     * Send a one-off test email to the currently logged-in admin.
+     */
+    public function actionSendTestMail(): Response
+    {
+        $this->requirePostRequest();
+        $this->requireAcceptsJson();
+        $this->requireAdmin();
+
+        $user = Craft::$app->getUser()->getIdentity();
+        if ($user === null || empty($user->email)) {
+            return $this->asFailure(Craft::t('insights', 'No email address on your account.'));
+        }
+
+        try {
+            Insights::getInstance()->notifications->sendTestMail($user->email);
+        } catch (\Throwable $e) {
+            return $this->asFailure($e->getMessage());
+        }
+
+        return $this->asSuccess(Craft::t('insights', 'Test mail sent to {email}.', [
+            'email' => $user->email,
+        ]));
+    }
 }

@@ -56,6 +56,7 @@ class Install extends Migration
      */
     private function dropTables(): void
     {
+        $this->dropTableIfExists(Constants::TABLE_NOTIFICATION_LOG);
         $this->dropTableIfExists(Constants::TABLE_SESSIONS);
         $this->dropTableIfExists(Constants::TABLE_SCROLL_DEPTH);
         $this->dropTableIfExists(Constants::TABLE_SEARCHES);
@@ -241,6 +242,19 @@ class Install extends Migration
             'uid' => $this->uid(),
         ]);
 
+        // Notification log - audit trail for sent analytics report emails
+        $this->createTable(Constants::TABLE_NOTIFICATION_LOG, [
+            'id' => $this->primaryKey(),
+            'frequency' => $this->string(20)->notNull(),
+            'sentAt' => $this->dateTime()->notNull(),
+            'recipientCount' => $this->integer()->unsigned()->defaultValue(0),
+            'status' => $this->string(20)->notNull()->defaultValue('sent'),
+            'errorMessage' => $this->text()->null(),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
         // Sessions - tracks pages per session, entry/exit pages
         $this->createTable(Constants::TABLE_SESSIONS, [
             'id' => $this->primaryKey(),
@@ -307,6 +321,9 @@ class Install extends Migration
         $this->createIndex(null, Constants::TABLE_SCROLL_DEPTH, ['siteId', 'date']);
         $this->createIndex(null, Constants::TABLE_SCROLL_DEPTH, ['siteId', 'date', 'hour', 'url'], true);
         $this->createIndex(null, Constants::TABLE_SCROLL_DEPTH, ['entryId']);
+
+        // Notification log indexes
+        $this->createIndex(null, Constants::TABLE_NOTIFICATION_LOG, ['frequency', 'sentAt']);
 
         // Sessions indexes - UNIQUE index on session identifier
         $this->createIndex(null, Constants::TABLE_SESSIONS, ['siteId', 'date']);

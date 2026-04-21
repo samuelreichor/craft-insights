@@ -25,6 +25,12 @@
         {% endnamespace %}
     </div>
 
+    <div id="email-reports" class="hidden">
+        {% namespace 'settings' %}
+            {% include 'insights/settings/_tabs/notifications' %}
+        {% endnamespace %}
+    </div>
+
     <div id="advanced" class="hidden">
         {% namespace 'settings' %}
             {% include 'insights/settings/_tabs/advanced' %}
