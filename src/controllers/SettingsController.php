@@ -2,6 +2,7 @@
 
 namespace samuelreichor\insights\controllers;
 
+use Craft;
 use craft\web\Controller;
 use samuelreichor\insights\Insights;
 use yii\web\Response;
@@ -9,10 +10,49 @@ use yii\web\Response;
 /**
  * Settings Controller
  *
- * Handles AJAX endpoints for plugin settings.
+ * Handles plugin settings page and related AJAX endpoints.
  */
 class SettingsController extends Controller
 {
+    /**
+     * Render the plugin settings page with tabs.
+     */
+    public function actionIndex(): Response
+    {
+        $this->requireAdmin();
+
+        return $this->renderTemplate('insights/settings/index', [
+            'plugin' => Insights::getInstance(),
+            'settings' => Insights::getInstance()->getSettings(),
+            'readOnly' => !Craft::$app->getConfig()->getGeneral()->allowAdminChanges,
+            'config' => Craft::$app->getConfig()->getConfigFromFile('insights'),
+        ]);
+    }
+
+    /**
+     * Save the submitted plugin settings.
+     */
+    public function actionSaveSettings(): ?Response
+    {
+        $this->requirePostRequest();
+        $this->requireAdmin();
+
+        $plugin = Insights::getInstance();
+        $posted = $this->request->getBodyParam('settings', []);
+
+        $settings = array_merge($plugin->getSettings()->toArray(), $posted);
+
+        if (!Craft::$app->getPlugins()->savePluginSettings($plugin, $settings)) {
+            Craft::$app->getSession()->setError(Craft::t('insights', 'Couldn\'t save plugin settings.'));
+
+            return null;
+        }
+
+        Craft::$app->getSession()->setNotice(Craft::t('insights', 'Plugin settings saved.'));
+
+        return $this->redirectToPostedUrl();
+    }
+
     /**
      * Test the external database connection.
      */

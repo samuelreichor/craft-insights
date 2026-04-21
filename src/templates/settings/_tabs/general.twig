@@ -1,0 +1,133 @@
+{# @var plugin \samuelreichor\insights\Insights #}
+{# @var settings \samuelreichor\insights\models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+{% from 'insights/settings/_macros' import configWarning %}
+
+{# ========== TRACKING ========== #}
+<h2>{{ 'Tracking'|t('insights') }}</h2>
+
+{{ forms.lightswitchField({
+    label: 'Enable Tracking'|t('insights'),
+    instructions: 'Master switch to enable or disable all tracking.'|t('insights'),
+    name: 'enabled',
+    on: settings.enabled,
+    disabled: readOnly or config.enabled is defined,
+    warning: config.enabled is defined ? configWarning('enabled'),
+}) }}
+
+<hr>
+
+{# ========== PRIVACY ========== #}
+<h2>{{ 'Privacy'|t('insights') }}</h2>
+
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Respect Do Not Track'|t('insights') }}</label>
+    </div>
+    <div class="instructions">
+        <p>{{ 'Honor the browser\'s Do Not Track (DNT) setting.'|t('insights') }}</p>
+    </div>
+    <div class="input ltr">
+        {{ forms.lightswitch({
+            name: 'respectDoNotTrack',
+            on: settings.respectDoNotTrack,
+            disabled: readOnly or config.respectDoNotTrack is defined,
+        }) }}
+    </div>
+    {% if config.respectDoNotTrack is defined %}
+    <p class="warning" style="margin-top: 8px;">
+        {{ configWarning('respectDoNotTrack') }}
+    </p>
+    {% elseif not settings.respectDoNotTrack %}
+    <p class="warning" style="margin-top: 8px;">
+        {{ 'Disabling this setting may violate GDPR/DSGVO requirements. Users who have enabled Do Not Track in their browser expect their preference to be respected.'|t('insights') }}
+    </p>
+    {% endif %}
+</div>
+
+{{ forms.lightswitchField({
+    label: 'Exclude Logged-in Users'|t('insights'),
+    instructions: 'Don\'t track any logged-in users.'|t('insights'),
+    name: 'excludeLoggedInUsers',
+    on: settings.excludeLoggedInUsers,
+    disabled: readOnly or config.excludeLoggedInUsers is defined,
+    warning: config.excludeLoggedInUsers is defined ? configWarning('excludeLoggedInUsers'),
+}) }}
+
+<hr>
+
+{# ========== DASHBOARD ========== #}
+<h2>{{ 'Dashboard'|t('insights') }}</h2>
+
+{{ forms.selectField({
+    label: 'Default Date Range'|t('insights'),
+    instructions: 'Default date range when opening the dashboard.'|t('insights'),
+    name: 'defaultDateRange',
+    value: settings.defaultDateRange,
+    options: [
+        { label: 'Today'|t('insights'), value: 'today' },
+        { label: 'Last 7 Days'|t('insights'), value: '7d' },
+        { label: 'Last 30 Days'|t('insights'), value: '30d' },
+        { label: 'Last 90 Days'|t('insights'), value: '90d' },
+        { label: 'Last 12 Months'|t('insights'), value: '12m' },
+    ],
+    disabled: readOnly or config.defaultDateRange is defined,
+    warning: config.defaultDateRange is defined ? configWarning('defaultDateRange'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Show Realtime Widget'|t('insights'),
+    instructions: 'Show the realtime visitors section on the dashboard.'|t('insights'),
+    name: 'showRealtimeWidget',
+    on: settings.showRealtimeWidget,
+    disabled: readOnly or config.showRealtimeWidget is defined,
+    warning: config.showRealtimeWidget is defined ? configWarning('showRealtimeWidget'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Show Entry Sidebar'|t('insights'),
+    instructions: 'Show analytics stats in the entry edit sidebar.'|t('insights'),
+    name: 'showEntrySidebar',
+    on: settings.showEntrySidebar,
+    disabled: readOnly or config.showEntrySidebar is defined,
+    warning: config.showEntrySidebar is defined ? configWarning('showEntrySidebar'),
+}) }}
+
+<hr>
+
+{# ========== GEOIP DATABASE ========== #}
+<h2>{{ 'GeoIP Database'|t('insights') }}</h2>
+
+{{ forms.textField({
+    label: 'Database Path'|t('insights'),
+    instructions: 'Path to the MaxMind GeoLite2-Country database file. Country data is collected for all users.'|t('insights'),
+    name: 'geoIpDatabasePath',
+    value: settings.geoIpDatabasePath,
+    placeholder: '@storage/geoip/GeoLite2-Country.mmdb',
+    errors: settings.getErrors('geoIpDatabasePath'),
+    disabled: readOnly or config.geoIpDatabasePath is defined,
+    warning: config.geoIpDatabasePath is defined ? configWarning('geoIpDatabasePath'),
+}) }}
+
+{% set geoipInfo = craft.insights.getGeoIpDatabaseInfo() %}
+{% if not plugin.is('pro') and geoipInfo.exists %}
+    <div class="input ltr" style="padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e; margin-top: -12px;">
+        {{ 'Country data is being collected. Upgrade to Pro to view detailed country statistics.'|t('insights') }}<br>
+    </div>
+{% endif %}
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Database Status'|t('insights') }}</label>
+    </div>
+    {% if geoipInfo.exists %}
+    <div class="input ltr" style="padding: 10px; background: #d1fae5; border-radius: 4px; color: #065f46;">
+        {{ 'Database found'|t('insights') }} ({{ (geoipInfo.size / 1024 / 1024)|round(1) }} MB, {{ geoipInfo.modified }})
+    </div>
+    {% else %}
+    <div class="input ltr" style="padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e;">
+        {{ 'Database not found. Country tracking disabled.'|t('insights') }}<br>
+        <a href="https://dev.maxmind.com/geoip/geoip2/geolite2/" target="_blank" rel="noopener">{{ 'Download GeoLite2-Country'|t('insights') }}</a>
+    </div>
+    {% endif %}
+</div>
