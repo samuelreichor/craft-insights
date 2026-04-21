@@ -3,12 +3,12 @@
   "description": "GDPR compliant analytics for Craft CMS",
   "type": "craft-plugin",
   "license": "proprietary",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "support": {
     "email": "samuelreichor@gmail.com",
     "issues": "https://github.com/samuelreichor/craft-insights/issues?state=open",
     "source": "https://github.com/samuelreichor/craft-insights",
-    "docs": "https://github.com/samuelreichor/craft-insights",
+    "docs": "https://samuelreichor.at/libraries/craft-insights",
     "rss": "https://github.com/samuelreichor/craft-insights/releases.atom"
   },
   "require": {
@@ -30,7 +30,7 @@
     "handle": "insights",
     "name": "Insights",
     "developer": "Samuel Reichör",
-    "documentationUrl": "https://github.com/samuelreichor/craft-insights",
+    "documentationUrl": "https://samuelreichor.at/libraries/craft-insights",
     "class": "samuelreichor\\insights\\Insights"
   },
   "scripts": {
