@@ -22,6 +22,9 @@
         },
     }]) %}
 {% endif %}
+{% set crumbs = crumbs|merge([
+    { label: 'Insights'|t('insights'), url: cpUrl('insights') },
+]) %}
 
 {% block content %}
 <div class="insights-page">
