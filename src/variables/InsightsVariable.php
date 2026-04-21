@@ -7,6 +7,7 @@ use craft\helpers\Json;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\web\assets\TrackingAsset;
 use Twig\Markup;
+use yii\base\InvalidConfigException;
 
 /**
  * Insights Variable
@@ -19,6 +20,7 @@ class InsightsVariable
      * Output the tracking script tag.
      *
      * Usage: {{ craft.insights.trackingScript() }}
+     * @throws InvalidConfigException
      */
     public function trackingScript(): Markup
     {

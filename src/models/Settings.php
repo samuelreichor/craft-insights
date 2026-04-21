@@ -4,6 +4,7 @@ namespace samuelreichor\insights\models;
 
 use craft\base\Model;
 use samuelreichor\insights\enums\DateRange;
+use samuelreichor\insights\enums\EmailFrequency;
 use samuelreichor\insights\enums\LogLevel;
 
 /**
@@ -53,6 +54,12 @@ class Settings extends Model
     // Logging
     public string $logLevel = 'default';
 
+    // Email Reports
+    public string $emailFrequency = 'never';
+
+    /** @var string[] */
+    public array $emailRecipients = [];
+
     /**
      * Get the log level as enum.
      */
@@ -73,6 +80,10 @@ class Settings extends Model
 
         if (isset($values['excludedIpRanges']) && is_array($values['excludedIpRanges'])) {
             $values['excludedIpRanges'] = $this->flattenTableData($values['excludedIpRanges'], 'ip');
+        }
+
+        if (isset($values['emailRecipients']) && is_array($values['emailRecipients'])) {
+            $values['emailRecipients'] = $this->flattenTableData($values['emailRecipients'], 'email');
         }
 
         parent::setAttributes($values, $safeOnly);
@@ -109,9 +120,11 @@ class Settings extends Model
             [['processTrackingJobPriority'], 'integer', 'min' => 1, 'max' => 10000],
             [['maxRetryAttempts'], 'integer', 'min' => 0, 'max' => 10],
             [['excludedPaths', 'excludedIpRanges'], 'each', 'rule' => ['string']],
-            [['geoIpDatabasePath', 'defaultDateRange', 'logLevel'], 'string'],
+            [['emailRecipients'], 'each', 'rule' => ['email']],
+            [['geoIpDatabasePath', 'defaultDateRange', 'logLevel', 'emailFrequency'], 'string'],
             [['defaultDateRange'], 'in', 'range' => array_column(DateRange::cases(), 'value')],
             [['logLevel'], 'in', 'range' => array_column(LogLevel::cases(), 'value')],
+            [['emailFrequency'], 'in', 'range' => array_column(EmailFrequency::cases(), 'value')],
         ];
     }
 }

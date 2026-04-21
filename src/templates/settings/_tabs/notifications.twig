@@ -1,0 +1,81 @@
+{# @var plugin \samuelreichor\insights\Insights #}
+{# @var settings \samuelreichor\insights\models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+{% from 'insights/settings/_macros' import configWarning %}
+
+{# ========== EMAIL REPORTS ========== #}
+<h2>{{ 'Email Reports'|t('insights') }}</h2>
+
+{{ forms.selectField({
+    label: 'Email Frequency'|t('insights'),
+    instructions: 'How often analytics update emails should be sent to recipients.'|t('insights'),
+    name: 'emailFrequency',
+    value: settings.emailFrequency,
+    options: [
+        { label: 'Never'|t('insights'), value: 'never' },
+        { label: 'Weekly'|t('insights'), value: 'weekly' },
+        { label: 'Every two weeks'|t('insights'), value: 'biweekly' },
+        { label: 'Monthly'|t('insights'), value: 'monthly' },
+    ],
+    errors: settings.getErrors('emailFrequency'),
+    disabled: readOnly or config.emailFrequency is defined,
+    warning: config.emailFrequency is defined ? configWarning('emailFrequency'),
+}) }}
+
+{{ forms.editableTableField({
+    label: 'Recipients'|t('insights'),
+    instructions: 'Email addresses that should receive analytics update emails.'|t('insights'),
+    name: 'emailRecipients',
+    id: 'emailRecipients',
+    cols: {
+        email: {
+            heading: 'Email'|t('insights'),
+            type: 'singleline',
+            placeholder: 'name@example.com',
+        }
+    },
+    rows: settings.emailRecipients|map(e => { email: e }),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('emailRecipients'),
+    disabled: readOnly or config.emailRecipients is defined,
+    warning: config.emailRecipients is defined ? configWarning('emailRecipients'),
+}) }}
+
+<div class="field">
+    <div class="instructions">
+        <p>{{ 'Send a one-off test email to your own address ({email}).'|t('insights', { email: currentUser.email ?? '' }) }}</p>
+    </div>
+    <div class="input ltr">
+        <button type="button" class="btn js-insights-send-test-mail">
+            {{ 'Send Test Mail'|t('insights') }}
+        </button>
+    </div>
+</div>
+
+{% js %}
+(() => {
+    const btn = document.querySelector('.js-insights-send-test-mail');
+    if (!btn) return;
+    const idleLabel = btn.textContent.trim();
+    const sendingLabel = {{ 'Sending…'|t('insights')|json_encode|raw }};
+
+    btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        btn.disabled = true;
+        btn.textContent = sendingLabel;
+        try {
+            const response = await Craft.sendActionRequest('POST', 'insights/settings/send-test-mail');
+            Craft.cp.displayNotice(response.data?.message || {{ 'Test mail sent.'|t('insights')|json_encode|raw }});
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || {{ 'Failed to send test mail.'|t('insights')|json_encode|raw }};
+            Craft.cp.displayError(msg);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = idleLabel;
+        }
+    });
+})();
+{% endjs %}
