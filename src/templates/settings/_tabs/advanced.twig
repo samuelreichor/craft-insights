@@ -1,0 +1,187 @@
+{# @var plugin \samuelreichor\insights\Insights #}
+{# @var settings \samuelreichor\insights\models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+{% from 'insights/settings/_macros' import configWarning %}
+
+{# ========== EXCLUSIONS ========== #}
+<h2>{{ 'Exclusions'|t('insights') }}</h2>
+
+{{ forms.editableTableField({
+    label: 'Excluded Paths'|t('insights'),
+    instructions: 'URL paths that should not be tracked.'|t('insights'),
+    name: 'excludedPaths',
+    id: 'excludedPaths',
+    cols: {
+        path: {
+            heading: 'Path'|t('insights'),
+            type: 'singleline',
+            placeholder: '/admin',
+        }
+    },
+    rows: settings.excludedPaths|map(p => { path: p }),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('excludedPaths'),
+    disabled: readOnly or config.excludedPaths is defined,
+    warning: config.excludedPaths is defined ? configWarning('excludedPaths'),
+}) }}
+
+{% if plugin.is('pro') %}
+{{ forms.editableTableField({
+    label: 'Excluded IP Ranges'|t('insights'),
+    instructions: 'IP addresses or CIDR ranges that should not be tracked.'|t('insights'),
+    name: 'excludedIpRanges',
+    id: 'excludedIpRanges',
+    cols: {
+        ip: {
+            heading: 'IP / CIDR'|t('insights'),
+            type: 'singleline',
+            placeholder: '192.168.1.0/24',
+        }
+    },
+    rows: settings.excludedIpRanges|map(ip => { ip: ip }),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('excludedIpRanges'),
+    disabled: readOnly or config.excludedIpRanges is defined,
+    warning: config.excludedIpRanges is defined ? configWarning('excludedIpRanges'),
+}) }}
+{% endif %}
+
+<hr>
+
+{# ========== DATA RETENTION ========== #}
+<h2>{{ 'Data Retention'|t('insights') }}</h2>
+
+{{ forms.textField({
+    label: 'Retention Period (Days)'|t('insights'),
+    instructions: 'How many days to keep tracking data. Older data will be automatically deleted. GDPR recommends keeping data only as long as necessary.'|t('insights'),
+    name: 'dataRetentionDays',
+    value: settings.dataRetentionDays,
+    type: 'number',
+    min: 1,
+    max: 730,
+    size: 5,
+    errors: settings.getErrors('dataRetentionDays'),
+    disabled: readOnly or config.dataRetentionDays is defined,
+    warning: config.dataRetentionDays is defined ? configWarning('dataRetentionDays'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Auto Cleanup'|t('insights'),
+    instructions: 'Automatically delete old data based on retention period.'|t('insights'),
+    name: 'autoCleanup',
+    on: settings.autoCleanup,
+    disabled: readOnly or config.autoCleanup is defined,
+    warning: config.autoCleanup is defined ? configWarning('autoCleanup'),
+}) }}
+
+{% set storageStats = craft.insights.getStorageStats() %}
+<div class="field">
+    <div class="heading">
+        <label>{{ 'Current Storage'|t('insights') }}</label>
+    </div>
+    <div class="input ltr" style="padding: 10px; background: var(--gray-050); border-radius: 4px;">
+        <table style="width: 100%; font-size: 13px;">
+            <tr><td>{{ 'Pageviews'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.pageviews|number_format }}</td></tr>
+            <tr><td>{{ 'Referrers'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.referrers|number_format }}</td></tr>
+            <tr><td>{{ 'Campaigns'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.campaigns|number_format }}</td></tr>
+            <tr><td>{{ 'Devices'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.devices|number_format }}</td></tr>
+            <tr><td>{{ 'Countries'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.countries|number_format }}</td></tr>
+            {% if storageStats.oldestDate %}
+            <tr><td colspan="2" style="padding-top: 8px; border-top: 1px solid var(--gray-200);">{{ 'Date range'|t('insights') }}: {{ storageStats.oldestDate }} – {{ storageStats.newestDate }}</td></tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<hr>
+
+{# ========== PERFORMANCE ========== #}
+<h2>{{ 'Performance'|t('insights') }}</h2>
+
+{{ forms.lightswitchField({
+    label: 'Use Queue'|t('insights'),
+    instructions: 'Process tracking data via the queue for better page load performance.'|t('insights'),
+    name: 'useQueue',
+    on: settings.useQueue,
+    disabled: readOnly or config.useQueue is defined,
+    warning: config.useQueue is defined ? configWarning('useQueue'),
+}) }}
+
+{{ forms.textField({
+    label: 'Realtime TTL (Seconds)'|t('insights'),
+    instructions: 'How long visitors are considered "active" in the realtime view.'|t('insights'),
+    name: 'realtimeTtl',
+    value: settings.realtimeTtl,
+    type: 'number',
+    min: 60,
+    max: 900,
+    size: 5,
+    errors: settings.getErrors('realtimeTtl'),
+    disabled: readOnly or config.realtimeTtl is defined,
+    warning: config.realtimeTtl is defined ? configWarning('realtimeTtl'),
+}) }}
+
+<hr>
+
+{# ========== DEVELOPER ========== #}
+<h2>{{ 'Developer'|t('insights') }}</h2>
+
+{{ forms.selectField({
+    label: 'Log Level'|t('insights'),
+    instructions: 'Control the verbosity of logging.'|t('insights'),
+    name: 'logLevel',
+    value: settings.logLevel,
+    options: [
+        { label: 'Default (Errors & Warnings)'|t('insights'), value: 'default' },
+        { label: 'Debug (All tracking steps)'|t('insights'), value: 'debug' },
+    ],
+    disabled: readOnly or config.logLevel is defined,
+    warning: config.logLevel is defined ? configWarning('logLevel'),
+}) }}
+
+{# ========== EXTERNAL DATABASE (Pro) ========== #}
+{% if plugin.is('pro') %}
+    <hr>
+
+    <h2>{{ 'External Database'|t('insights') }}</h2>
+
+    {% set dbStatus = craft.insights.getDatabaseStatus() %}
+
+    {% if dbStatus.configured %}
+        {# Status badge inline with lightswitch #}
+        {% set statusBadge %}
+            {% if dbStatus.error and not dbStatus.enabled %}
+                <span style="display: inline-block; padding: 2px 8px; background: #fee2e2; color: #991b1b; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Config Error'|t('insights') }}</span>
+            {% elseif dbStatus.connected and dbStatus.tablesExist %}
+                <span style="display: inline-block; padding: 2px 8px; background: #d1fae5; color: #065f46; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Connected'|t('insights') }}</span>
+            {% elseif dbStatus.connected and not dbStatus.tablesExist %}
+                <span style="display: inline-block; padding: 2px 8px; background: #fef3c7; color: #92400e; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Tables Missing'|t('insights') }}</span>
+            {% elseif dbStatus.enabled %}
+                <span style="display: inline-block; padding: 2px 8px; background: #fee2e2; color: #991b1b; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{ 'Connection Failed'|t('insights') }}</span>
+            {% endif %}
+        {% endset %}
+
+        {{ forms.lightswitchField({
+            label: 'Use External Database'|t('insights') ~ statusBadge,
+            instructions: 'Store analytics data in the external database instead of the Craft database. DSN: <code>' ~ dbStatus.details.dsn ~ '</code>',
+            name: 'useExternalDatabase',
+            on: settings.useExternalDatabase,
+            disabled: readOnly or config.useExternalDatabase is defined,
+            warning: config.useExternalDatabase is defined ? configWarning('useExternalDatabase'),
+        }) }}
+
+        {% if dbStatus.error %}
+            <p class="error">{{ dbStatus.error }}</p>
+        {% elseif dbStatus.connected and not dbStatus.tablesExist %}
+            <p class="warning">{{ 'Run'|t('insights') }} <code>php craft insights/database/migrate</code> {{ 'to create tables.'|t('insights') }}</p>
+        {% endif %}
+
+    {% else %}
+        <p class="light">{{ 'To use an external database, add the'|t('insights') }} <code>insightsDb</code> {{ 'component to'|t('insights') }} <code>config/app.php</code>. <a href="https://craftcms.com/knowledge-base/connecting-to-multiple-databases" target="_blank" rel="noopener">{{ 'Learn more'|t('insights') }}</a></p>
+    {% endif %}
+{% endif %}

@@ -1,0 +1,34 @@
+{% extends '_layouts/cp' %}
+
+{% set title = 'Insights Settings'|t('insights') %}
+{% set fullPageForm = true %}
+{% set selectedSubnavItem = 'settings' %}
+
+{% set crumbs = [
+    { label: 'Insights'|t('insights'), url: cpUrl('insights') },
+] %}
+
+{% set tabs = {
+    general: { label: 'General'|t('insights'), url: '#general' },
+    emailReports: { label: 'Notifications'|t('insights'), url: '#email-reports' },
+    advanced: { label: 'Advanced'|t('insights'), url: '#advanced' },
+} %}
+
+{% block content %}
+
+    <input type="hidden" name="action" value="insights/settings/save-settings">
+    {{ redirectInput('insights/settings') }}
+
+    <div id="general">
+        {% namespace 'settings' %}
+            {% include 'insights/settings/_tabs/general' %}
+        {% endnamespace %}
+    </div>
+
+    <div id="advanced" class="hidden">
+        {% namespace 'settings' %}
+            {% include 'insights/settings/_tabs/advanced' %}
+        {% endnamespace %}
+    </div>
+
+{% endblock %}
