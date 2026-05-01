@@ -26,6 +26,7 @@ use samuelreichor\insights\services\DatabaseService;
 use samuelreichor\insights\services\GeoIpService;
 use samuelreichor\insights\services\LoggerService;
 use samuelreichor\insights\services\NotificationService;
+use samuelreichor\insights\services\PdfService;
 use samuelreichor\insights\services\StatsService;
 use samuelreichor\insights\services\TrackingService;
 use samuelreichor\insights\services\VisitorService;
@@ -51,6 +52,7 @@ use yii\log\FileTarget;
  * @property-read CleanupService $cleanup
  * @property-read DatabaseService $database
  * @property-read NotificationService $notifications
+ * @property-read PdfService $pdf
  * @author Samuel Reichör <samuelreichor@gmail.com>
  * @copyright Samuel Reichör
  * @license https://craftcms.github.io/license/ Craft License
@@ -119,6 +121,7 @@ class Insights extends Plugin
                 'cleanup' => CleanupService::class,
                 'database' => DatabaseService::class,
                 'notifications' => NotificationService::class,
+                'pdf' => PdfService::class,
             ],
         ];
     }

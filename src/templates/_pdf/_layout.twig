@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        @page { margin: 22mm 14mm 24mm 14mm; }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'DejaVu Sans', sans-serif;
+            font-size: 9.5pt;
+            color: #111827;
+            margin: 0;
+            line-height: 1.25;
+            background: #ffffff;
+        }
+        p { margin: 0 0 2mm 0; }
+
+        /* Header */
+        .pdf-header {
+            border-left: 4px solid #3B82F6;
+            padding: 1mm 0 1mm 4mm;
+            margin-bottom: 6mm;
+        }
+        .pdf-header h1 {
+            font-size: 18pt;
+            font-weight: 700;
+            margin: 0 0 1mm 0;
+            color: #111827;
+            letter-spacing: -0.01em;
+            line-height: 1.1;
+        }
+        .pdf-header .period {
+            font-size: 11pt;
+            font-weight: 600;
+            color: #3B82F6;
+            margin: 0 0 1.5mm 0;
+            line-height: 1.2;
+        }
+        .pdf-header .period-label {
+            color: #9CA3AF;
+            font-weight: 400;
+            font-size: 9pt;
+        }
+        .pdf-header .meta {
+            color: #6B7280;
+            font-size: 8.5pt;
+        }
+        .pdf-header .meta-item {
+            display: inline;
+            color: #6B7280;
+        }
+        .pdf-header .meta-divider {
+            color: #D1D5DB;
+            margin: 0 6px;
+        }
+        .pdf-header .meta-label {
+            color: #9CA3AF;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 7.5pt;
+            margin-right: 4px;
+        }
+
+        /* Section heading */
+        h2 {
+            font-size: 11pt;
+            font-weight: 600;
+            color: #111827;
+            margin: 5mm 0 2.5mm 0;
+            line-height: 1.2;
+        }
+
+        /* Card containers */
+        .card {
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            background: #ffffff;
+            padding: 4mm 5mm;
+            margin-bottom: 4mm;
+        }
+
+        /* KPI grid (table-based for dompdf) */
+        .kpi-grid {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 0 0 5mm 0;
+        }
+        .kpi-cell {
+            width: 25%;
+            padding: 0 0.75mm;
+            border: none;
+            vertical-align: top;
+            line-height: 1.2;
+        }
+        .kpi-cell.first { padding-left: 0; }
+        .kpi-cell.last { padding-right: 0; }
+        .kpi-card {
+            border: 1px solid #E5E7EB;
+            border-radius: 4px;
+            background: #ffffff;
+            padding: 3mm 4mm;
+        }
+        .kpi-label {
+            color: #6B7280;
+            font-size: 7pt;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0 0 1.5mm 0;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+        .kpi-value {
+            font-size: 16pt;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.05;
+            margin: 0 0 1mm 0;
+        }
+        .kpi-trend {
+            font-size: 7.5pt;
+            color: #9CA3AF;
+            line-height: 1.2;
+            margin: 0;
+        }
+        .kpi-trend.positive { color: #10B981; }
+        .kpi-trend.negative { color: #EF4444; }
+
+        /* Tables */
+        .table-wrap {
+            border: 1px solid #E5E7EB;
+            border-radius: 5px;
+            background: #ffffff;
+            margin-bottom: 4mm;
+            page-break-inside: auto;
+        }
+        table.data {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            page-break-inside: auto;
+        }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+        table.data th,
+        table.data td {
+            text-align: left;
+            padding: 4px 8px;
+            font-size: 9pt;
+            line-height: 1.25;
+            vertical-align: top;
+            border-bottom: 1px solid #F3F4F6;
+        }
+        table.data thead th {
+            background: #F9FAFB;
+            color: #6B7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 7.5pt;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        table.data thead th:first-child { border-top-left-radius: 4px; }
+        table.data thead th:last-child { border-top-right-radius: 4px; }
+        table.data tbody tr:last-child td {
+            border-bottom: none;
+        }
+        table.data tbody tr:last-child td:first-child { border-bottom-left-radius: 4px; }
+        table.data tbody tr:last-child td:last-child { border-bottom-right-radius: 4px; }
+        table.data td.number,
+        table.data th.number {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        table.data td.url {
+            color: #374151;
+            word-break: break-all;
+        }
+
+        /* Chart card */
+        .chart-card {
+            border: 1px solid #E5E7EB;
+            border-radius: 5px;
+            background: #ffffff;
+            padding: 4mm 5mm 2mm 5mm;
+            margin-bottom: 5mm;
+        }
+        .chart-legend {
+            font-size: 8pt;
+            color: #6B7280;
+            margin-bottom: 2mm;
+        }
+        .chart-legend-item {
+            margin-right: 5mm;
+            display: inline-block;
+        }
+        .chart-swatch {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            margin-right: 3px;
+            vertical-align: middle;
+        }
+
+        /* Empty state */
+        .empty {
+            color: #9CA3AF;
+            font-style: italic;
+            padding: 4mm 0;
+            text-align: center;
+            background: #F9FAFB;
+            border: 1px solid #F3F4F6;
+            border-radius: 5px;
+            margin-bottom: 4mm;
+        }
+
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: -16mm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #9CA3AF;
+            font-size: 7.5pt;
+            border-top: 1px solid #F3F4F6;
+            padding-top: 3mm;
+        }
+        .footer .footer-brand {
+            color: #6B7280;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="pdf-header">
+        <h1>{{ title }}</h1>
+        <div class="period">
+            {{ rangePeriod }}{% if rangeLabel %} <span class="period-label">({{ rangeLabel|t('insights') }})</span>{% endif %}
+        </div>
+        <div class="meta">
+            <span class="meta-item"><span class="meta-label">{{ 'Site'|t('insights') }}</span>{{ siteName }}</span>
+            <span class="meta-divider">·</span>
+            <span class="meta-item"><span class="meta-label">{{ 'Exported'|t('insights') }}</span>{{ exportedAt }}</span>
+        </div>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <div class="footer">
+        <span class="footer-brand">Insights</span> · {{ 'GDPR-compliant analytics for Craft CMS'|t('insights') }}
+    </div>
+</body>
+</html>

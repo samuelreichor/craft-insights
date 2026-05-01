@@ -6,76 +6,176 @@ use Craft;
 use craft\web\Controller;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\services\StatsService;
+use yii\web\ForbiddenHttpException;
 use yii\web\Response;
 
 /**
  * Export Controller
  *
- * Handles data export in CSV and JSON formats.
+ * Handles data export in CSV and PDF formats.
  */
 class ExportController extends Controller
 {
     public function actionPageviews(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopPages($siteId, $range, 1000), 'pageviews');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopPages($siteId, $range, 1000),
+            'pageviews',
+            'Top Pages',
+            [
+                ['key' => 'url', 'label' => 'Page'],
+                ['key' => 'views', 'label' => 'Views', 'numeric' => true],
+                ['key' => 'uniqueVisitors', 'label' => 'Visitors', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionReferrers(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopReferrers($siteId, $range, 1000), 'referrers');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopReferrers($siteId, $range, 1000),
+            'referrers',
+            'Referrers',
+            [
+                ['key' => 'referrerDomain', 'label' => 'Source'],
+                ['key' => 'referrerType', 'label' => 'Type'],
+                ['key' => 'visits', 'label' => 'Visits', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionCampaigns(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopCampaigns($siteId, $range, 1000), 'campaigns');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopCampaigns($siteId, $range, 1000),
+            'campaigns',
+            'Campaigns',
+            [
+                ['key' => 'utmSource', 'label' => 'Source'],
+                ['key' => 'utmMedium', 'label' => 'Medium'],
+                ['key' => 'utmCampaign', 'label' => 'Campaign'],
+                ['key' => 'visits', 'label' => 'Visits', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionCountries(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopCountries($siteId, $range, 1000), 'countries');
+        return $this->handleExport(
+            function(StatsService $stats, int $siteId, string $range): array {
+                $rows = $stats->getTopCountries($siteId, $range, 1000);
+                return Craft::$app->getRequest()->getQueryParam('format') === 'pdf'
+                    ? Insights::getInstance()->pdf->enrichCountries($rows)
+                    : $rows;
+            },
+            'countries',
+            'Top Countries',
+            [
+                ['key' => 'countryCode', 'label' => 'Country'],
+                ['key' => 'visits', 'label' => 'Visits', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionEntryPages(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopEntryPages($siteId, $range, 1000), 'entry-pages');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopEntryPages($siteId, $range, 1000),
+            'entry-pages',
+            'Entry Pages',
+            [
+                ['key' => 'url', 'label' => 'Page'],
+                ['key' => 'sessions', 'label' => 'Sessions', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionExitPages(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopExitPages($siteId, $range, 1000), 'exit-pages');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopExitPages($siteId, $range, 1000),
+            'exit-pages',
+            'Exit Pages',
+            [
+                ['key' => 'url', 'label' => 'Page'],
+                ['key' => 'sessions', 'label' => 'Sessions', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionScrollDepth(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getScrollDepth($siteId, $range, 1000), 'scroll-depth');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getScrollDepth($siteId, $range, 1000),
+            'scroll-depth',
+            'Scroll Depth',
+            [
+                ['key' => 'url', 'label' => 'Page'],
+                ['key' => 'milestone25', 'label' => '25%', 'numeric' => true],
+                ['key' => 'milestone50', 'label' => '50%', 'numeric' => true],
+                ['key' => 'milestone75', 'label' => '75%', 'numeric' => true],
+                ['key' => 'milestone100', 'label' => '100%', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionEvents(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopEvents($siteId, $range, 1000), 'events');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopEvents($siteId, $range, 1000),
+            'events',
+            'Top Events',
+            [
+                ['key' => 'eventName', 'label' => 'Event'],
+                ['key' => 'eventCategory', 'label' => 'Category'],
+                ['key' => 'count', 'label' => 'Count', 'numeric' => true],
+                ['key' => 'uniqueVisitors', 'label' => 'Visitors', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionOutbound(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopOutboundLinks($siteId, $range, 1000), 'outbound');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopOutboundLinks($siteId, $range, 1000),
+            'outbound',
+            'Outbound Links',
+            [
+                ['key' => 'targetDomain', 'label' => 'Domain'],
+                ['key' => 'clicks', 'label' => 'Clicks', 'numeric' => true],
+                ['key' => 'uniqueVisitors', 'label' => 'Visitors', 'numeric' => true],
+            ]
+        );
     }
 
     public function actionSearches(): Response
     {
-        return $this->handleExport(fn(StatsService $stats, int $siteId, string $range) => $stats->getTopSearches($siteId, $range, 1000), 'searches');
+        return $this->handleExport(
+            fn(StatsService $stats, int $siteId, string $range) => $stats->getTopSearches($siteId, $range, 1000),
+            'searches',
+            'Site Searches',
+            [
+                ['key' => 'searchTerm', 'label' => 'Search Term'],
+                ['key' => 'searches', 'label' => 'Searches', 'numeric' => true],
+                ['key' => 'uniqueVisitors', 'label' => 'Visitors', 'numeric' => true],
+            ]
+        );
     }
 
     /**
      * Handle export with common boilerplate.
      *
      * @param callable(StatsService, int, string): array<int, array<string, mixed>> $dataFetcher
+     * @param array<int, array{key: string, label: string, numeric?: bool}> $columns
+     * @throws ForbiddenHttpException
      */
-    private function handleExport(callable $dataFetcher, string $type): Response
+    private function handleExport(callable $dataFetcher, string $type, string $sectionLabel, array $columns): Response
     {
         $this->requirePermission('insights:exportData');
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
+        $pdf = Insights::getInstance()->pdf;
 
         $siteId = (int)($request->getQueryParam('siteId') ?? Craft::$app->getSites()->getCurrentSite()->id);
         $range = $request->getQueryParam('range', $settings->defaultDateRange);
@@ -84,57 +184,54 @@ class ExportController extends Controller
         $stats = Insights::getInstance()->stats;
         $data = $dataFetcher($stats, $siteId, $range);
 
-        return $this->exportData($data, "insights-{$type}-{$range}", $format);
+        $filename = "insights-{$type}-{$range}";
+
+        if ($format === 'pdf') {
+            return $pdf->render('insights/_pdf/section.twig', [
+                'title' => Craft::t('insights', $sectionLabel),
+                'sectionLabel' => $sectionLabel,
+                'columns' => $columns,
+                'rows' => $data,
+                'siteName' => $pdf->getSiteName($siteId),
+                'rangeLabel' => $pdf->getRangeLabel($range),
+                'rangePeriod' => $pdf->getRangePeriod($range),
+                'exportedAt' => date('Y-m-d H:i'),
+            ], $filename);
+        }
+
+        return $this->exportCsv($data, $filename);
     }
 
     /**
-     * Export all data as a combined report.
+     * Export the dashboard as a multi-section PDF report.
+     * @throws ForbiddenHttpException
      */
-    public function actionAll(): Response
+    public function actionDashboard(): Response
     {
         $this->requirePermission('insights:exportData');
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
 
-        $siteId = (int)($request->getQueryParam('siteId')
-            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $siteId = (int)($request->getQueryParam('siteId') ?? Craft::$app->getSites()->getCurrentSite()->id);
         $range = $request->getQueryParam('range', $settings->defaultDateRange);
 
-        $stats = Insights::getInstance()->stats;
+        $pdf = Insights::getInstance()->pdf;
 
-        $data = [
-            'summary' => $stats->getSummary($siteId, $range),
-            'pages' => $stats->getTopPages($siteId, $range, 100),
-            'referrers' => $stats->getTopReferrers($siteId, $range, 100),
-            'campaigns' => $stats->getTopCampaigns($siteId, $range, 100),
-            'countries' => $stats->getTopCountries($siteId, $range, 100),
-            'devices' => $stats->getDeviceBreakdown($siteId, $range),
-            'browsers' => $stats->getBrowserBreakdown($siteId, $range),
-            'exportedAt' => date('Y-m-d H:i:s'),
-            'range' => $range,
-            'siteId' => $siteId,
-        ];
-
-        $filename = "insights-report-{$range}";
-
-        return $this->asJson($data)
-            ->setDownloadHeaders($filename . '.json');
+        return $pdf->render(
+            'insights/_pdf/dashboard.twig',
+            $pdf->buildDashboardData($siteId, $range),
+            "insights-dashboard-{$range}",
+        );
     }
 
     /**
-     * Export data in specified format.
+     * Stream the rows out as a CSV download.
      *
      * @param array<int, array<string, mixed>> $data
      */
-    private function exportData(array $data, string $filename, string $format): Response
+    private function exportCsv(array $data, string $filename): Response
     {
-        if ($format === 'json') {
-            return $this->asJson($data)
-                ->setDownloadHeaders($filename . '.json');
-        }
-
-        // CSV export
         $response = Craft::$app->getResponse();
         $response->format = Response::FORMAT_RAW;
         $response->setDownloadHeaders($filename . '.csv', 'text/csv');
@@ -145,12 +242,10 @@ class ExportController extends Controller
             return $this->asJson(['error' => 'Failed to create output']);
         }
 
-        // Write header row
         if (!empty($data)) {
             fputcsv($output, array_keys($data[0]));
         }
 
-        // Write data rows
         foreach ($data as $row) {
             fputcsv($output, $row);
         }
