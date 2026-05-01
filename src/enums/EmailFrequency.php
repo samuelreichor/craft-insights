@@ -57,15 +57,16 @@ enum EmailFrequency: string
     }
 
     /**
-     * Closest matching DateRange enum value for fetching stats.
+     * DateRange enum value used to fetch the stats for this frequency.
      *
-     * StatsService accepts fixed ranges (7d, 30d). BiWeekly approximates to 7d
-     * (same weekly snapshot, delivered less often). Monthly rounds to 30d.
+     * Each frequency reports on the period it covers — Weekly → 7d,
+     * BiWeekly → 14d, Monthly → 30d.
      */
     public function statsRange(): string
     {
         return match ($this) {
-            self::Weekly, self::BiWeekly => '7d',
+            self::Weekly => '7d',
+            self::BiWeekly => '14d',
             self::Monthly => '30d',
             self::Never => '7d',
         };

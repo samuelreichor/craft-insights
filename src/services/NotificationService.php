@@ -145,10 +145,12 @@ class NotificationService extends Component
 
         try {
             $html = $this->renderEmailHtml($frequency);
+            $attachment = $this->buildPdfAttachment($frequency);
             $this->deliver(
                 recipients: $recipients,
                 subject: Craft::t('insights', 'Your Insights analytics report'),
                 html: $html,
+                attachment: $attachment,
             );
 
             $this->logSend($frequency, count($recipients), 'sent');
@@ -184,7 +186,40 @@ class NotificationService extends Component
             recipients: [$recipient],
             subject: Craft::t('insights', 'Your Insights analytics report'),
             html: $this->renderEmailHtml($frequency),
+            attachment: $this->buildPdfAttachment($frequency),
         );
+    }
+
+    /**
+     * Build the dashboard PDF attachment for a scheduled email, or return null
+     * when the user disabled it. Errors are swallowed (and logged) so a broken
+     * PDF render never blocks the regular HTML email going out.
+     *
+     * @return array{content: string, filename: string}|null
+     */
+    private function buildPdfAttachment(EmailFrequency $frequency): ?array
+    {
+        $plugin = Insights::getInstance();
+
+        if (!$plugin->getSettings()->attachPdfReport) {
+            return null;
+        }
+
+        try {
+            $siteId = Craft::$app->getSites()->getPrimarySite()->id;
+            $range = $frequency->statsRange();
+            $variables = $plugin->pdf->buildDashboardData($siteId, $range);
+
+            return [
+                'content' => $plugin->pdf->generate('insights/_pdf/dashboard.twig', $variables),
+                'filename' => "insights-dashboard-{$range}.pdf",
+            ];
+        } catch (Throwable $e) {
+            $plugin->logger->warning('Insights PDF attachment failed: ' . $e->getMessage(), [
+                'frequency' => $frequency->value,
+            ]);
+            return null;
+        }
     }
 
     /**
@@ -204,9 +239,10 @@ class NotificationService extends Component
      * Send an email via Craft's mailer, respecting the system From settings.
      *
      * @param string[] $recipients
+     * @param array{content: string, filename: string}|null $attachment Optional binary attachment.
      * @throws \RuntimeException When the mailer reports a failed send.
      */
-    private function deliver(array $recipients, string $subject, string $html): void
+    private function deliver(array $recipients, string $subject, string $html, ?array $attachment = null): void
     {
         $fromEmail = App::parseEnv(Craft::$app->getProjectConfig()->get('email.fromEmail')) ?? null;
         $fromName = App::parseEnv(Craft::$app->getProjectConfig()->get('email.fromName')) ?? 'Insights';
@@ -218,6 +254,13 @@ class NotificationService extends Component
 
         if ($fromEmail) {
             $message->setFrom([$fromEmail => $fromName]);
+        }
+
+        if ($attachment !== null) {
+            $message->attachContent($attachment['content'], [
+                'fileName' => $attachment['filename'],
+                'contentType' => 'application/pdf',
+            ]);
         }
 
         if (!$message->send()) {

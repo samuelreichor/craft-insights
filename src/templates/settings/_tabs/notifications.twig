@@ -44,6 +44,16 @@
     warning: config.emailRecipients is defined ? configWarning('emailRecipients'),
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Attach Report PDF'|t('insights'),
+    instructions: 'Attach the full report as a PDF to each email.'|t('insights'),
+    name: 'attachPdfReport',
+    on: settings.attachPdfReport,
+    errors: settings.getErrors('attachPdfReport'),
+    disabled: readOnly or config.attachPdfReport is defined,
+    warning: config.attachPdfReport is defined ? configWarning('attachPdfReport'),
+}) }}
+
 <div class="field">
     <div class="instructions">
         <p>{{ 'Send a one-off test email to your own address ({email}).'|t('insights', { email: currentUser.email ?? '' }) }}</p>

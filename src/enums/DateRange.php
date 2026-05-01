@@ -9,6 +9,7 @@ enum DateRange: string
 {
     case Today = 'today';
     case Last7Days = '7d';
+    case Last14Days = '14d';
     case Last30Days = '30d';
     case Last90Days = '90d';
     case Last12Months = '12m';
@@ -21,6 +22,7 @@ enum DateRange: string
         return match ($this) {
             self::Today => 'Today',
             self::Last7Days => 'Last 7 Days',
+            self::Last14Days => 'Last 14 Days',
             self::Last30Days => 'Last 30 Days',
             self::Last90Days => 'Last 90 Days',
             self::Last12Months => 'Last 12 Months',
@@ -35,6 +37,7 @@ enum DateRange: string
         return match ($this) {
             self::Today => date('Y-m-d'),
             self::Last7Days => date('Y-m-d', strtotime('-6 days')),
+            self::Last14Days => date('Y-m-d', strtotime('-13 days')),
             self::Last30Days => date('Y-m-d', strtotime('-29 days')),
             self::Last90Days => date('Y-m-d', strtotime('-89 days')),
             self::Last12Months => date('Y-m-d', strtotime('-365 days')),
