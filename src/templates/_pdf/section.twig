@@ -1,0 +1,33 @@
+{% extends 'insights/_pdf/_layout.twig' %}
+
+{% block content %}
+    <h2>{{ sectionLabel|t('insights') }}</h2>
+
+    {% if rows|length %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        {% for col in columns %}
+                            <th{% if col.numeric ?? false %} class="number"{% endif %}>{{ col.label|t('insights') }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            {% for col in columns %}
+                                {% set raw = row[col.key] ?? null %}
+                                {% set isUrl = col.key == 'url' or col.key == 'targetDomain' or col.key == 'searchTerm' or col.key == 'eventName' %}
+                                {% set value = raw is null or raw == '' ? '-' : (col.numeric ?? false ? raw|number_format : raw) %}
+                                <td class="{{ col.numeric ?? false ? 'number' : (isUrl ? 'url' : '') }}">{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty">{{ 'No data available for this period.'|t('insights') }}</div>
+    {% endif %}
+{% endblock %}

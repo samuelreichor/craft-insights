@@ -62,8 +62,22 @@
             }) }}
         </div>
         <div class="flex-grow"></div>
-        <a href="{{ actionUrl('insights/export/entry-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn" id="entry-export">{{ 'Export Entry Pages'|t('insights') }}</a>
-        <a href="{{ actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }) }}" class="btn" id="exit-export">{{ 'Export Exit Pages'|t('insights') }}</a>
+        {% include '_includes/disclosuremenu.twig' with {
+            withButton: true,
+            buttonLabel: 'Export Entry Pages'|t('insights'),
+            items: [
+                { label: 'Export CSV'|t('insights'), url: actionUrl('insights/export/entry-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }), attributes: { id: 'entry-export-csv' } },
+                { label: 'Export PDF'|t('insights'), url: actionUrl('insights/export/entry-pages', { siteId: selectedSiteId, range: selectedRange, format: 'pdf' }), attributes: { id: 'entry-export-pdf' } },
+            ],
+        } only %}
+        {% include '_includes/disclosuremenu.twig' with {
+            withButton: true,
+            buttonLabel: 'Export Exit Pages'|t('insights'),
+            items: [
+                { label: 'Export CSV'|t('insights'), url: actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'csv' }), attributes: { id: 'exit-export-csv' } },
+                { label: 'Export PDF'|t('insights'), url: actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'pdf' }), attributes: { id: 'exit-export-pdf' } },
+            ],
+        } only %}
     </div>
 
     <div class="insights-dual-tables">
@@ -133,24 +147,21 @@
         range = rangeSelect.value;
 
         // Update export links
-        var entryExport = document.getElementById('entry-export');
-        var exitExport = document.getElementById('exit-export');
-
-        if (entryExport) {
-            entryExport.href = Craft.getActionUrl('insights/export/entry-pages', {
-                siteId: siteId,
-                range: range,
-                format: 'csv'
-            });
-        }
-
-        if (exitExport) {
-            exitExport.href = Craft.getActionUrl('insights/export/exit-pages', {
-                siteId: siteId,
-                range: range,
-                format: 'csv'
-            });
-        }
+        [
+            { id: 'entry-export-csv', action: 'insights/export/entry-pages', format: 'csv' },
+            { id: 'entry-export-pdf', action: 'insights/export/entry-pages', format: 'pdf' },
+            { id: 'exit-export-csv', action: 'insights/export/exit-pages', format: 'csv' },
+            { id: 'exit-export-pdf', action: 'insights/export/exit-pages', format: 'pdf' },
+        ].forEach(function(link) {
+            var el = document.getElementById(link.id);
+            if (el) {
+                el.href = Craft.getActionUrl(link.action, {
+                    siteId: siteId,
+                    range: range,
+                    format: link.format
+                });
+            }
+        });
 
         // Update table endpoints and reload
         entryTable.settings.tableDataEndpoint = getEntryTableEndpoint();

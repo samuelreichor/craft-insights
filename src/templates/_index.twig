@@ -40,6 +40,10 @@
                 value: selectedRange,
             }) }}
         </div>
+        <div class="flex-grow"></div>
+        {% if currentUser.can('insights:exportData') %}
+            <a href="{{ actionUrl('insights/export/dashboard', { siteId: selectedSiteId, range: selectedRange }) }}" class="btn">{{ 'Export PDF'|t('insights') }}</a>
+        {% endif %}
     </div>
 
     {# Realtime Widget #}
