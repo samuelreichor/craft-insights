@@ -4,6 +4,7 @@ namespace samuelreichor\insights\controllers;
 
 use Craft;
 use craft\web\Controller;
+use Jaybizzle\CrawlerDetect\CrawlerDetect;
 use samuelreichor\insights\enums\EventType;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\jobs\ProcessTrackingJob;
@@ -149,37 +150,15 @@ class TrackController extends Controller
     }
 
     /**
-     * Check if the request is from a bot.
+     * Check if the request is from a bot or crawler.
+     *
+     * Uses jaybizzle/crawler-detect, which ships a regularly updated list of
+     * ~1000 crawler User-Agent patterns (search engines, monitoring tools,
+     * AI scrapers like GPTBot/ClaudeBot/PerplexityBot, headless browsers …).
      */
     private function isBot(\craft\web\Request $request): bool
     {
-        $ua = strtolower($request->getUserAgent() ?? '');
-
-        $bots = [
-            'bot',
-            'crawl',
-            'spider',
-            'slurp',
-            'lighthouse',
-            'pagespeed',
-            'gtmetrix',
-            'pingdom',
-            'uptimerobot',
-            'headless',
-            'phantom',
-            'selenium',
-            'puppeteer',
-            'wget',
-            'curl',
-        ];
-
-        foreach ($bots as $bot) {
-            if (str_contains($ua, $bot)) {
-                return true;
-            }
-        }
-
-        return false;
+        return (new CrawlerDetect())->isCrawler($request->getUserAgent() ?? '');
     }
 
     /**
