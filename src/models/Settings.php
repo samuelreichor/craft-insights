@@ -56,6 +56,7 @@ class Settings extends Model
 
     // Email Reports
     public string $emailFrequency = 'never';
+    public bool $attachPdfReport = true;
 
     /** @var string[] */
     public array $emailRecipients = [];
@@ -113,7 +114,7 @@ class Settings extends Model
         return [
             [['enabled', 'useExternalDatabase'], 'boolean'],
             [['respectDoNotTrack', 'excludeLoggedInUsers'], 'boolean'],
-            [['autoCleanup', 'useQueue', 'showRealtimeWidget', 'showEntrySidebar'], 'boolean'],
+            [['autoCleanup', 'useQueue', 'showRealtimeWidget', 'showEntrySidebar', 'attachPdfReport'], 'boolean'],
             [['dataRetentionDays'], 'integer', 'min' => 1, 'max' => 730],
             [['realtimeTtl'], 'integer', 'min' => 60, 'max' => 900],
             [['queueJobTtr'], 'integer', 'min' => 60, 'max' => 3600],
