@@ -1,5 +1,14 @@
 # Release Notes for Insights
 
+## 1.3.0 - 2026-05-01
+
+- Adds export as PDF feature to all pages
+- Adds the ability to include full PDF reports in scheduled emails
+- Adds attachPdfReport notification setting
+- Improves bot detection
+- Installs dompdf
+- Installs jaybizzle/crawler-detect
+
 ## 1.2.0 - 2026-04-21
 
 - Adds scheduled email reports with configurable frequency (weekly, every two weeks, monthly) and freely editable recipient list
