@@ -4,6 +4,7 @@ namespace samuelreichor\insights\controllers;
 
 use Craft;
 use craft\web\Controller;
+use samuelreichor\insights\enums\Permission;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\services\StatsService;
 use yii\web\ForbiddenHttpException;
@@ -171,7 +172,7 @@ class ExportController extends Controller
      */
     private function handleExport(callable $dataFetcher, string $type, string $sectionLabel, array $columns): Response
     {
-        $this->requirePermission('insights:exportData');
+        $this->requirePermission(Permission::ExportData->value);
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -208,7 +209,7 @@ class ExportController extends Controller
      */
     public function actionDashboard(): Response
     {
-        $this->requirePermission('insights:exportData');
+        $this->requirePermission(Permission::ExportData->value);
 
         $request = Craft::$app->getRequest();
         $settings = Insights::getInstance()->getSettings();
@@ -216,11 +217,12 @@ class ExportController extends Controller
         $siteId = (int)($request->getQueryParam('siteId') ?? Craft::$app->getSites()->getCurrentSite()->id);
         $range = $request->getQueryParam('range', $settings->defaultDateRange);
 
+        $user = Craft::$app->getUser()->getIdentity();
         $pdf = Insights::getInstance()->pdf;
 
         return $pdf->render(
             'insights/_pdf/dashboard.twig',
-            $pdf->buildDashboardData($siteId, $range),
+            $pdf->buildDashboardData($siteId, $range, $user),
             "insights-dashboard-{$range}",
         );
     }

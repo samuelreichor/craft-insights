@@ -44,6 +44,7 @@
             }) }}
         </div>
         <div class="flex-grow"></div>
+        {% if currentUser.can('insights:exportData') %}
         {% include '_includes/disclosuremenu.twig' with {
             withButton: true,
             buttonLabel: 'Export'|t('insights'),
@@ -52,6 +53,7 @@
                 { label: 'Export PDF'|t('insights'), url: actionUrl('insights/export/countries', { siteId: selectedSiteId, range: selectedRange, format: 'pdf' }), attributes: { id: 'export-pdf-link' } },
             ],
         } only %}
+        {% endif %}
     </div>
 
     <div id="countries-table"></div>
