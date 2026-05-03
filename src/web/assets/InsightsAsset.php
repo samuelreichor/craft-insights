@@ -25,7 +25,9 @@ class InsightsAsset extends AssetBundle
         ];
 
         $this->js = [
+            'js/vendor/chart.umd.min.js',
             'js/dashboard.js',
+            'js/llm.js',
         ];
 
         parent::init();

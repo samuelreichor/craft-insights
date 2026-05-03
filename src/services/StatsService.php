@@ -1069,4 +1069,282 @@ class StatsService extends Component
             ->limit($limit)
             ->all($this->getDb());
     }
+
+    // ==================================================================
+    // LLM bot tracking (fed by LLMify EVENT_LLM_REQUEST)
+    // ==================================================================
+
+    /**
+     * Get summary KPIs for the LLM dashboard.
+     *
+     * Bot-only counters (totalRequests, uniqueBots, topBot, delivery split)
+     * filter out human hits on markdown URLs so the dashboard reflects AI
+     * crawler activity. `humanRequests` is the residual — the LLM dashboard
+     * surfaces it next to the bot total in a single split KPI.
+     *
+     * @return array{totalRequests: int, uniqueBots: int, topBot: string|null, topBotShare: float, directShare: float, negotiatedShare: float, humanRequests: int, totalVisitsTrend: float}
+     */
+    public function getLlmTotals(int $siteId, string $range): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+        [$prevStartDate, $prevEndDate] = $this->getPreviousDateRange($range);
+        $db = $this->getDb();
+
+        // Bot-only counters exclude human hits on markdown URLs (botName = '')
+        // — dashboard is about AI bot activity and humans skew the totals.
+        $totalRequests = (int)(new Query())
+            ->select(['SUM([[count]])'])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['not', ['botName' => '']])
+            ->scalar($db);
+
+        $uniqueBots = (int)(new Query())
+            ->select(['COUNT(DISTINCT [[botName]])'])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['not', ['botName' => '']])
+            ->scalar($db);
+
+        $topBotRow = (new Query())
+            ->select(['botName', 'SUM([[count]]) as requests'])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['not', ['botName' => '']])
+            ->groupBy(['botName'])
+            ->orderBy(['requests' => SORT_DESC])
+            ->limit(1)
+            ->one($db);
+
+        $byType = (new Query())
+            ->select(['requestType', 'SUM([[count]]) as requests'])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['not', ['botName' => '']])
+            ->groupBy(['requestType'])
+            ->all($db);
+
+        $counts = ['direct' => 0, 'negotiated' => 0];
+        foreach ($byType as $row) {
+            $counts[$row['requestType']] = (int)$row['requests'];
+        }
+
+        $humanRequests = (int)(new Query())
+            ->select(['SUM([[count]])'])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['botName' => ''])
+            ->scalar($db);
+
+        // Trend for the combined Total Visits KPI (bots + humans).
+        $prevTotalVisits = (int)(new Query())
+            ->select(['SUM([[count]])'])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $prevStartDate])
+            ->andWhere(['<=', 'date', $prevEndDate])
+            ->scalar($db);
+
+        $totalVisits = $totalRequests + $humanRequests;
+        $totalVisitsTrend = $prevTotalVisits > 0
+            ? round((($totalVisits - $prevTotalVisits) / $prevTotalVisits) * 100, 1)
+            : 0.0;
+
+        return [
+            'totalRequests' => $totalRequests,
+            'uniqueBots' => $uniqueBots,
+            'topBot' => $topBotRow ? (string)$topBotRow['botName'] : null,
+            'topBotShare' => $totalRequests > 0 && $topBotRow
+                ? round((int)$topBotRow['requests'] / $totalRequests * 100, 1)
+                : 0.0,
+            'directShare' => $totalRequests > 0
+                ? round($counts['direct'] / $totalRequests * 100, 1)
+                : 0.0,
+            'negotiatedShare' => $totalRequests > 0
+                ? round($counts['negotiated'] / $totalRequests * 100, 1)
+                : 0.0,
+            'humanRequests' => $humanRequests,
+            'totalVisitsTrend' => $totalVisitsTrend,
+        ];
+    }
+
+    /**
+     * Get the stacked-bar chart data for LLM requests.
+     *
+     * @param string $groupBy 'total' | 'bot' | 'type'
+     * @return array{labels: string[], series: array<int, array{label: string, data: int[]}>}
+     */
+    public function getLlmTimeSeries(int $siteId, string $range, string $groupBy): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+        $db = $this->getDb();
+
+        $select = ['date', 'SUM([[count]]) as total'];
+        $group = ['date'];
+
+        if ($groupBy === 'bot') {
+            $select[] = 'botName';
+            $group[] = 'botName';
+        } elseif ($groupBy === 'type') {
+            $select[] = 'requestType';
+            $group[] = 'requestType';
+        }
+
+        $query = (new Query())
+            ->select($select)
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy($group)
+            ->orderBy(['date' => SORT_ASC]);
+
+        // Bot/type breakdowns are meaningless for human hits (empty botName),
+        // but the Total line shows the full visit picture including humans.
+        if ($groupBy !== 'total') {
+            $query->andWhere(['not', ['botName' => '']]);
+        }
+
+        $rows = $query->all($db);
+
+        $dates = [];
+        $labels = [];
+        $current = new DateTime($startDate);
+        $end = new DateTime($endDate);
+        while ($current <= $end) {
+            $dates[] = $current->format('Y-m-d');
+            $labels[] = $current->format('M j');
+            $current->modify('+1 day');
+        }
+
+        if ($groupBy === 'total') {
+            $byDate = [];
+            foreach ($rows as $row) {
+                $byDate[$row['date']] = (int)$row['total'];
+            }
+            $data = array_map(fn($d) => $byDate[$d] ?? 0, $dates);
+
+            return [
+                'labels' => $labels,
+                'series' => [['label' => 'Total', 'data' => $data]],
+            ];
+        }
+
+        $key = $groupBy === 'bot' ? 'botName' : 'requestType';
+        $defaultLabel = $groupBy === 'bot' ? 'direct' : 'unknown';
+
+        $bucket = [];
+        foreach ($rows as $row) {
+            $name = $row[$key] ?? null;
+            if ($name === null || $name === '') {
+                $name = $defaultLabel;
+            }
+            $bucket[$name][$row['date']] = (int)$row['total'];
+        }
+
+        $totals = array_map(static fn($daily) => array_sum($daily), $bucket);
+        arsort($totals);
+
+        $series = [];
+        foreach (array_keys($totals) as $name) {
+            $daily = $bucket[$name];
+            $series[] = [
+                'label' => $name,
+                'data' => array_map(fn($d) => $daily[$d] ?? 0, $dates),
+            ];
+        }
+
+        return [
+            'labels' => $labels,
+            'series' => $series,
+        ];
+    }
+
+    /**
+     * Get bot breakdown rows (bot, requests, last seen).
+     *
+     * @return array<int, array{botName: string, requests: int, lastSeen: string|null}>
+     */
+    public function getLlmBotBreakdown(int $siteId, string $range): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+        $db = $this->getDb();
+
+        $totals = (new Query())
+            ->select([
+                'botName',
+                'SUM([[count]]) as requests',
+            ])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['not', ['botName' => '']])
+            ->groupBy(['botName'])
+            ->orderBy(['requests' => SORT_DESC])
+            ->all($db);
+
+        $lastSeenRows = (new Query())
+            ->select(['botName', 'lastSeen'])
+            ->from(Constants::TABLE_LLM_BOTS)
+            ->where(['siteId' => $siteId])
+            ->all($db);
+
+        $lastSeen = [];
+        foreach ($lastSeenRows as $row) {
+            $lastSeen[$row['botName']] = $row['lastSeen'];
+        }
+
+        $result = [];
+        foreach ($totals as $row) {
+            $result[] = [
+                'botName' => (string)$row['botName'],
+                'requests' => (int)$row['requests'],
+                'lastSeen' => $lastSeen[$row['botName']] ?? null,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get the most-visited markdown URLs (bots + humans combined).
+     *
+     * @return array<int, array{url: string, totalCrawls: int}>
+     */
+    public function getLlmTopPages(int $siteId, string $range, int $limit = 100): array
+    {
+        [$startDate, $endDate] = $this->getDateRange($range);
+        $db = $this->getDb();
+
+        $rows = (new Query())
+            ->select([
+                'url',
+                'SUM([[count]]) as totalCrawls',
+            ])
+            ->from(Constants::TABLE_LLM_REQUESTS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->andWhere(['IS NOT', 'url', null])
+            ->groupBy(['url'])
+            ->orderBy(['totalCrawls' => SORT_DESC])
+            ->limit($limit)
+            ->all($db);
+
+        return array_map(static fn($row) => [
+            'url' => (string)$row['url'],
+            'totalCrawls' => (int)$row['totalCrawls'],
+        ], $rows);
+    }
 }

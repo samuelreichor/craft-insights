@@ -129,6 +129,16 @@
     </div>
     {% endif %}
 
+    {# LLM Bot Activity (only when LLMify is installed) #}
+    {% if llmTotals is not null %}
+        {% include 'insights/_components/llm-card.twig' with {
+            totals: llmTotals,
+            selectedSiteId: selectedSiteId,
+            selectedRange: selectedRange,
+            canViewLlmDetail: currentUser.can('insights:viewLlmAnalytics'),
+        } only %}
+    {% endif %}
+
     {# Data Tables Grid #}
     <div class="insights-grid">
         {# Top Pages #}

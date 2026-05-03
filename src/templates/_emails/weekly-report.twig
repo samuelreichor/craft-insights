@@ -70,6 +70,50 @@
 </table>
 {% endif %}
 
+{# ===== LLM Bot Activity (only when LLMify is installed) ===== #}
+{% if llmTotals is not null %}
+    <h2 style="{{ headingStyle }}">{{ 'LLM Bot Activity'|t('insights') }}</h2>
+    <table style="{{ tableStyle }}">
+        <tr>
+            <td style="{{ cellStyle }}">{{ 'Total Visits'|t('insights') }}</td>
+            <td style="{{ cellRightStyle }}">
+                <strong>{{ llmTotals.totalRequests|number_format }}</strong> {{ 'Bots'|t('insights') }} ·
+                <strong>{{ llmTotals.humanRequests|number_format }}</strong> {{ 'Humans'|t('insights') }}
+            </td>
+        </tr>
+        <tr>
+            <td style="{{ cellStyle }}">{{ 'Unique Bots'|t('insights') }}</td>
+            <td style="{{ cellRightStyle }}"><strong>{{ llmTotals.uniqueBots|number_format }}</strong></td>
+        </tr>
+        <tr>
+            <td style="{{ cellStyle }}">{{ 'Top Crawler'|t('insights') }}</td>
+            <td style="{{ cellRightStyle }}">
+                <strong>{{ llmTotals.topBot ?? '—' }}</strong>
+                {% if llmTotals.topBot %}<span style="color: #6b7280;">({{ llmTotals.topBotShare }}%)</span>{% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td style="{{ cellStyle }} border-bottom: none;">{{ 'Delivery Split'|t('insights') }}</td>
+            <td style="{{ cellRightStyle }} border-bottom: none;">
+                <strong>{{ llmTotals.directShare }}%</strong> {{ 'Direct'|t('insights') }} ·
+                <strong>{{ llmTotals.negotiatedShare }}%</strong> {{ 'Negotiated'|t('insights') }}
+            </td>
+        </tr>
+    </table>
+
+    {% if llmTopPages is not empty %}
+        <h2 style="{{ headingStyle }}">{{ 'Top Visited Markdowns'|t('insights') }}</h2>
+        <table style="{{ tableStyle }}">
+            {% for page in llmTopPages %}
+            <tr>
+                <td style="{{ cellStyle }}">{{ page.url }}</td>
+                <td style="{{ cellRightStyle }} width: 80px;">{{ page.totalCrawls|number_format }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+{% endif %}
+
 {# ===== CTA ===== #}
 <p style="margin: 28px 0 8px;">
     <a href="{{ dashboardUrl }}"

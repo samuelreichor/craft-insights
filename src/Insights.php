@@ -20,10 +20,12 @@ use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use samuelreichor\insights\enums\Permission;
 use samuelreichor\insights\fields\InsightsField;
+use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\models\Settings;
 use samuelreichor\insights\services\CleanupService;
 use samuelreichor\insights\services\DatabaseService;
 use samuelreichor\insights\services\GeoIpService;
+use samuelreichor\insights\services\LlmTrackingService;
 use samuelreichor\insights\services\LoggerService;
 use samuelreichor\insights\services\NotificationService;
 use samuelreichor\insights\services\PdfService;
@@ -53,6 +55,7 @@ use yii\log\FileTarget;
  * @property-read DatabaseService $database
  * @property-read NotificationService $notifications
  * @property-read PdfService $pdf
+ * @property-read LlmTrackingService $llmTracking
  * @author Samuel Reichör <samuelreichor@gmail.com>
  * @copyright Samuel Reichör
  * @license https://craftcms.github.io/license/ Craft License
@@ -122,6 +125,7 @@ class Insights extends Plugin
                 'database' => DatabaseService::class,
                 'notifications' => NotificationService::class,
                 'pdf' => PdfService::class,
+                'llmTracking' => LlmTrackingService::class,
             ],
         ];
     }
@@ -133,8 +137,8 @@ class Insights extends Plugin
         $this->initLogger();
         $this->attachEventHandlers();
 
-        // Deferred initialization
         Craft::$app->onInit(function() {
+            $this->registerLlmifyListener();
             $this->registerAutoCleanup();
             $this->registerAutoNotifications();
         });
@@ -238,6 +242,13 @@ class Insights extends Plugin
             }
         }
 
+        if (Utils::isPluginInstalledAndEnabled('llmify') && $user->can(Permission::ViewLlmAnalytics->value)) {
+            $allowedPages['llm'] = [
+                'label' => Craft::t('insights', 'LLM Bots'),
+                'url' => 'insights/llm',
+            ];
+        }
+
         // No pages allowed → no menu
         if (empty($allowedPages)) {
             return null;
@@ -317,6 +328,10 @@ class Insights extends Plugin
                 $event->rules['insights/countries'] = 'insights/dashboard/countries';
                 $event->rules['insights/entry-exit-pages'] = 'insights/dashboard/entry-exit-pages';
                 $event->rules['insights/scroll-depth'] = 'insights/dashboard/scroll-depth';
+                $event->rules['insights/llm'] = 'insights/dashboard/llm';
+                $event->rules['insights/llm/series'] = 'insights/dashboard/llm-series';
+                $event->rules['insights/llm/crawlers-table-data'] = 'insights/dashboard/llm-crawlers-table-data';
+                $event->rules['insights/llm/top-pages-table-data'] = 'insights/dashboard/llm-top-pages-table-data';
                 $event->rules['insights/settings'] = 'insights/settings/index';
                 $event->rules['insights/settings/save-settings'] = 'insights/settings/save-settings';
             }
@@ -357,9 +372,14 @@ class Insights extends Plugin
             UserPermissions::class,
             UserPermissions::EVENT_REGISTER_PERMISSIONS,
             function(RegisterUserPermissionsEvent $event) {
+                $llmifyInstalled = Utils::isPluginInstalledAndEnabled('llmify');
+
                 // Build nested dashboard permissions
                 $dashboardNested = [];
                 foreach (Permission::dashboardPermissions() as $permission) {
+                    if ($permission->isLlm() && !$llmifyInstalled) {
+                        continue;
+                    }
                     $dashboardNested[$permission->value] = [
                         'label' => Craft::t('insights', $permission->label()),
                     ];
@@ -368,6 +388,9 @@ class Insights extends Plugin
                 // Build page permissions
                 $pagePermissions = [];
                 foreach (Permission::pagePermissions() as $permission) {
+                    if ($permission->isLlm() && !$llmifyInstalled) {
+                        continue;
+                    }
                     $pagePermissions[$permission->value] = [
                         'label' => Craft::t('insights', $permission->label()),
                     ];
@@ -399,6 +422,33 @@ class Insights extends Plugin
             Entry::EVENT_DEFINE_SIDEBAR_HTML,
             function(DefineHtmlEvent $event) {
                 $this->handleEntrySidebar($event);
+            }
+        );
+    }
+
+    /**
+     * Subscribe to LLMify's EVENT_LLM_REQUEST when the plugin is installed.
+     *
+     * Coupled only via two string symbols, so Insights neither requires nor
+     * imports anything from LLMify.
+     */
+    private function registerLlmifyListener(): void
+    {
+        if (!Utils::isPluginInstalledAndEnabled('llmify')) {
+            return;
+        }
+
+        $llmifyClass = 'samuelreichor\\llmify\\Llmify';
+
+        if (!defined($llmifyClass . '::EVENT_LLM_REQUEST')) {
+            return;
+        }
+
+        Event::on(
+            $llmifyClass,
+            constant($llmifyClass . '::EVENT_LLM_REQUEST'),
+            function(Event $event) {
+                $this->llmTracking->processRequest($event);
             }
         );
     }

@@ -9,6 +9,7 @@ use craft\helpers\UrlHelper;
 use DateTime;
 use samuelreichor\insights\Constants;
 use samuelreichor\insights\enums\EmailFrequency;
+use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\jobs\SendNotificationReport;
 use samuelreichor\insights\records\NotificationLogRecord;
@@ -281,12 +282,16 @@ class NotificationService extends Component
         $siteId = Craft::$app->getSites()->getPrimarySite()->id;
         $range = $frequency->statsRange();
 
+        $llmifyInstalled = Utils::isPluginInstalledAndEnabled('llmify');
+
         return [
             'frequency' => $frequency,
             'periodDays' => $frequency->intervalDays(),
             'summary' => $stats->getSummary($siteId, $range),
             'topPages' => $stats->getTopPages($siteId, $range, 3),
             'topReferrers' => $stats->getTopReferrers($siteId, $range, 3),
+            'llmTotals' => $llmifyInstalled ? $stats->getLlmTotals($siteId, $range) : null,
+            'llmTopPages' => $llmifyInstalled ? $stats->getLlmTopPages($siteId, $range, 3) : [],
             'dashboardUrl' => UrlHelper::cpUrl('insights'),
         ];
     }

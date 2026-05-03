@@ -1,0 +1,62 @@
+<div class="insights-table-container insights-llm-summary">
+    <div class="insights-table-header">
+        <h2>{{ 'LLM Bot Activity'|t('insights') }}</h2>
+        {% if canViewLlmDetail %}
+            <a href="{{ cpUrl('insights/llm', { siteId: selectedSiteId, range: selectedRange }) }}">{{ 'View all'|t('insights') }}</a>
+        {% endif %}
+    </div>
+
+    <div class="insights-llm-summary-grid">
+        <div class="insights-llm-summary-stat">
+            <div class="insights-llm-summary-label">
+                {{ 'Total Visits'|t('insights') }}
+                <span class="insights-kpi-trend insights-kpi-trend-inline {{ totals.totalVisitsTrend >= 0 ? 'positive' : 'negative' }}">
+                    {% if totals.totalVisitsTrend >= 0 %}
+                        <span>&#8593;</span>
+                    {% else %}
+                        <span>&#8595;</span>
+                    {% endif %}
+                    {{ totals.totalVisitsTrend|abs }}%
+                </span>
+            </div>
+            <div class="insights-llm-split">
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.totalRequests|number }}</div>
+                    <div class="insights-llm-split-label">{{ 'Bots'|t('insights') }}</div>
+                </div>
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.humanRequests|number }}</div>
+                    <div class="insights-llm-split-label">{{ 'Humans'|t('insights') }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="insights-llm-summary-stat">
+            <div class="insights-llm-summary-label">{{ 'Top Crawler'|t('insights') }}</div>
+            <div class="insights-llm-summary-value">{{ totals.topBot ?? '—' }}</div>
+            <div class="insights-kpi-trend neutral">
+                {% if totals.topBot %}{{ '{share}% of traffic'|t('insights', { share: totals.topBotShare }) }}{% else %}{{ 'No bot activity yet'|t('insights') }}{% endif %}
+            </div>
+        </div>
+
+        <div class="insights-llm-summary-stat">
+            <div class="insights-llm-summary-label">{{ 'Unique Bots'|t('insights') }}</div>
+            <div class="insights-llm-summary-value">{{ totals.uniqueBots|number }}</div>
+            <div class="insights-kpi-trend neutral">{{ 'distinct AI crawlers'|t('insights') }}</div>
+        </div>
+
+        <div class="insights-llm-summary-stat">
+            <div class="insights-llm-summary-label">{{ 'Delivery Split'|t('insights') }}</div>
+            <div class="insights-llm-split">
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.directShare }}%</div>
+                    <div class="insights-llm-split-label">{{ 'Direct'|t('insights') }}</div>
+                </div>
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.negotiatedShare }}%</div>
+                    <div class="insights-llm-split-label">{{ 'Negotiated'|t('insights') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

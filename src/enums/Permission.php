@@ -24,6 +24,7 @@ enum Permission: string
     case ViewDashboardSearches = 'insights:viewDashboardSearches';
     case ViewDashboardEntryExitPages = 'insights:viewDashboardEntryExitPages';
     case ViewDashboardScrollDepth = 'insights:viewDashboardScrollDepth';
+    case ViewDashboardLlm = 'insights:viewDashboardLlm';
 
     // Detail Page Permissions
     case ViewPages = 'insights:viewPages';
@@ -35,6 +36,9 @@ enum Permission: string
     case ViewSearches = 'insights:viewSearches';
     case ViewEntryExitPages = 'insights:viewEntryExitPages';
     case ViewScrollDepth = 'insights:viewScrollDepth';
+
+    // LLM Bot Analytics
+    case ViewLlmAnalytics = 'insights:viewLlmAnalytics';
 
     // Entry Sidebar
     case ViewEntryStats = 'insights:viewEntryStats';
@@ -61,6 +65,7 @@ enum Permission: string
             self::ViewDashboardSearches => 'View Dashboard Searches',
             self::ViewDashboardEntryExitPages => 'View Dashboard Entry & Exit Pages',
             self::ViewDashboardScrollDepth => 'View Dashboard Scroll Depth',
+            self::ViewDashboardLlm => 'View Dashboard LLM Bots',
             // Detail Pages
             self::ViewPages => 'View Pages',
             self::ViewReferrers => 'View Referrers',
@@ -71,6 +76,7 @@ enum Permission: string
             self::ViewSearches => 'View Site Searches',
             self::ViewEntryExitPages => 'View Entry & Exit Pages',
             self::ViewScrollDepth => 'View Scroll Depth',
+            self::ViewLlmAnalytics => 'View LLM Bots',
             // Entry Sidebar
             self::ViewEntryStats => 'View Entry Stats',
         };
@@ -107,6 +113,7 @@ enum Permission: string
             self::ViewDashboardSearches,
             self::ViewDashboardEntryExitPages,
             self::ViewDashboardScrollDepth,
+            self::ViewDashboardLlm,
         ];
     }
 
@@ -127,6 +134,7 @@ enum Permission: string
             self::ViewSearches,
             self::ViewEntryExitPages,
             self::ViewScrollDepth,
+            self::ViewLlmAnalytics,
         ];
     }
 
@@ -163,5 +171,17 @@ enum Permission: string
     public function isPro(): bool
     {
         return in_array($this, self::proPermissions(), true);
+    }
+
+    /**
+     * Check if this permission depends on the LLMify plugin and should
+     * only be exposed when LLMify is installed.
+     */
+    public function isLlm(): bool
+    {
+        return in_array($this, [
+            self::ViewDashboardLlm,
+            self::ViewLlmAnalytics,
+        ], true);
     }
 }

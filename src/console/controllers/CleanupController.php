@@ -38,6 +38,8 @@ class CleanupController extends Controller
         $this->stdout("  - Searches: {$results['searches']} records deleted\n");
         $this->stdout("  - Scroll Depth: {$results['scrollDepth']} records deleted\n");
         $this->stdout("  - Sessions: {$results['sessions']} records deleted\n");
+        $this->stdout("  - LLM Requests: {$results['llmRequests']} records deleted\n");
+        $this->stdout("  - LLM Bots: {$results['llmBots']} records deleted\n");
         $this->stdout("\nTotal: {$total} records deleted.\n");
 
         return ExitCode::OK;
@@ -66,6 +68,8 @@ class CleanupController extends Controller
         $this->stdout("  Searches:     {$stats['searches']} records\n");
         $this->stdout("  Scroll Depth: {$stats['scrollDepth']} records\n");
         $this->stdout("  Sessions:     {$stats['sessions']} records\n");
+        $this->stdout("  LLM Requests: {$stats['llmRequests']} records\n");
+        $this->stdout("  LLM Bots:     {$stats['llmBots']} records\n");
 
         if ($stats['oldestDate']) {
             $this->stdout("\n  Data range: {$stats['oldestDate']} to {$stats['newestDate']}\n");

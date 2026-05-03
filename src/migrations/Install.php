@@ -57,6 +57,8 @@ class Install extends Migration
     private function dropTables(): void
     {
         $this->dropTableIfExists(Constants::TABLE_NOTIFICATION_LOG);
+        $this->dropTableIfExists(Constants::TABLE_LLM_BOTS);
+        $this->dropTableIfExists(Constants::TABLE_LLM_REQUESTS);
         $this->dropTableIfExists(Constants::TABLE_SESSIONS);
         $this->dropTableIfExists(Constants::TABLE_SCROLL_DEPTH);
         $this->dropTableIfExists(Constants::TABLE_SEARCHES);
@@ -255,6 +257,37 @@ class Install extends Migration
             'uid' => $this->uid(),
         ]);
 
+        // LLM bot request tracking (fed by LLMify EVENT_LLM_REQUEST)
+        // botName/elementType are NOT NULL with empty-string defaults so the
+        // unique index can deduplicate via UPSERT (MySQL treats NULL as
+        // distinct in unique indexes). urlHash holds an MD5 of `url` so the
+        // unique index stays under the 3072-byte key-length limit.
+        $this->createTable(Constants::TABLE_LLM_REQUESTS, [
+            'id' => $this->primaryKey(),
+            'siteId' => $this->integer()->notNull(),
+            'date' => $this->date()->notNull(),
+            'botName' => $this->string(100)->notNull()->defaultValue(''),
+            'requestType' => $this->string(16)->notNull(),
+            'elementType' => $this->string(255)->notNull()->defaultValue(''),
+            'url' => $this->string(Constants::MAX_URL_LENGTH)->null(),
+            'urlHash' => $this->char(32)->notNull()->defaultValue(''),
+            'count' => $this->integer()->unsigned()->defaultValue(0),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
+        $this->createTable(Constants::TABLE_LLM_BOTS, [
+            'id' => $this->primaryKey(),
+            'siteId' => $this->integer()->notNull(),
+            'botName' => $this->string(100)->notNull(),
+            'lastSeen' => $this->dateTime()->notNull(),
+            'totalRequests' => $this->integer()->unsigned()->defaultValue(0),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
         // Sessions - tracks pages per session, entry/exit pages
         $this->createTable(Constants::TABLE_SESSIONS, [
             'id' => $this->primaryKey(),
@@ -324,6 +357,14 @@ class Install extends Migration
 
         // Notification log indexes
         $this->createIndex(null, Constants::TABLE_NOTIFICATION_LOG, ['frequency', 'sentAt']);
+
+        // LLM tracking indexes - UNIQUE index required for UPSERT
+        $this->createIndex(null, Constants::TABLE_LLM_REQUESTS, ['siteId', 'date']);
+        $this->createIndex(null, Constants::TABLE_LLM_REQUESTS, ['siteId', 'date', 'botName', 'requestType', 'elementType', 'urlHash'], true);
+        $this->createIndex(null, Constants::TABLE_LLM_REQUESTS, ['requestType']);
+        $this->createIndex(null, Constants::TABLE_LLM_REQUESTS, ['botName']);
+        $this->createIndex(null, Constants::TABLE_LLM_REQUESTS, ['url']);
+        $this->createIndex(null, Constants::TABLE_LLM_BOTS, ['siteId', 'botName'], true);
 
         // Sessions indexes - UNIQUE index on session identifier
         $this->createIndex(null, Constants::TABLE_SESSIONS, ['siteId', 'date']);
@@ -454,6 +495,22 @@ class Install extends Migration
             '{{%entries}}',
             ['id'],
             'SET NULL'
+        );
+        $this->addForeignKey(
+            null,
+            Constants::TABLE_LLM_REQUESTS,
+            ['siteId'],
+            '{{%sites}}',
+            ['id'],
+            'CASCADE'
+        );
+        $this->addForeignKey(
+            null,
+            Constants::TABLE_LLM_BOTS,
+            ['siteId'],
+            '{{%sites}}',
+            ['id'],
+            'CASCADE'
         );
     }
 }
