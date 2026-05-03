@@ -6,6 +6,7 @@ use Craft;
 use craft\helpers\AdminTable;
 use craft\web\Controller;
 use samuelreichor\insights\enums\Permission;
+use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\Insights;
 use yii\web\Response;
 
@@ -35,6 +36,20 @@ class DashboardController extends Controller
         // Preview data for Lite users (row count only, content is placeholder)
         $proPreviews = !$isPro ? $stats->getProFeaturePreviews($siteId, $range) : null;
 
+        // LLM bot stats — only when LLMify is installed and the user is
+        // permitted, so the card stays out of the way for sites that don't
+        // run LLMify at all.
+        $llmTotals = null;
+        $user = Craft::$app->getUser()->getIdentity();
+        $llmifyInstalled = Utils::isPluginInstalledAndEnabled('llmify');
+        if (
+            $llmifyInstalled
+            && $user
+            && $user->can(Permission::ViewDashboardLlm->value)
+        ) {
+            $llmTotals = $stats->getLlmTotals($siteId, $range);
+        }
+
         return $this->renderTemplate('insights/_index', [
             'summary' => $stats->getSummary($siteId, $range),
             'chartData' => $stats->getChartData($siteId, $range),
@@ -58,6 +73,7 @@ class DashboardController extends Controller
             'selectedRange' => $range,
             'settings' => $settings,
             'proPreviews' => $proPreviews,
+            'llmTotals' => $llmTotals,
         ]);
     }
 
@@ -89,6 +105,179 @@ class DashboardController extends Controller
     public function actionOutbound(): Response
     {
         return $this->renderDetailView(Permission::ViewOutbound, 'insights/outbound/_index', true);
+    }
+
+    /**
+     * LLM bot analytics dashboard.
+     */
+    public function actionLlm(): Response
+    {
+        $this->requirePermission(Permission::ViewLlmAnalytics->value);
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = $this->resolveSiteId();
+        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $groupBy = $request->getQueryParam('groupBy', 'bot');
+
+        $stats = Insights::getInstance()->stats;
+
+        return $this->renderTemplate('insights/llm/_index', [
+            'totals' => $stats->getLlmTotals($siteId, $range),
+            'series' => $stats->getLlmTimeSeries($siteId, $range, $groupBy),
+            'selectedSiteId' => $siteId,
+            'selectedRange' => $range,
+            'selectedGroupBy' => $groupBy,
+            'settings' => $settings,
+        ]);
+    }
+
+    /**
+     * LLM crawlers table data (Vue Admin Table endpoint).
+     */
+    public function actionLlmCrawlersTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewLlmAnalytics->value);
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 25);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $rows = Insights::getInstance()->stats->getLlmBotBreakdown($siteId, $range);
+
+        if ($search) {
+            $rows = array_values(array_filter($rows, fn($r) => stripos($r['botName'], (string)$search) !== false));
+        }
+
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $field = $sort[0]['field'];
+            $dir = $sort[0]['direction'] ?? 'desc';
+            usort($rows, function($a, $b) use ($field, $dir) {
+                $aVal = match ($field) {
+                    'botName' => strtolower($a['botName']),
+                    'requests' => (int)$a['requests'],
+                    default => 0,
+                };
+                $bVal = match ($field) {
+                    'botName' => strtolower($b['botName']),
+                    'requests' => (int)$b['requests'],
+                    default => 0,
+                };
+                $cmp = $aVal <=> $bVal;
+                return $dir === 'asc' ? $cmp : -$cmp;
+            });
+        }
+
+        $total = count($rows);
+        $rows = array_slice($rows, ($page - 1) * $limit, $limit);
+
+        $data = [];
+        foreach ($rows as $r) {
+            $data[] = [
+                'id' => md5('llmbot_' . $r['botName']),
+                'title' => $r['botName'],
+                'botName' => $r['botName'],
+                'requests' => number_format((int)$r['requests']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * LLM top crawled pages table data (Vue Admin Table endpoint).
+     */
+    public function actionLlmTopPagesTableData(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewLlmAnalytics->value);
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getParam('range', $settings->defaultDateRange);
+        $page = (int)$request->getParam('page', 1);
+        $limit = (int)$request->getParam('per_page', 25);
+        $search = $request->getParam('search');
+        $sort = $request->getParam('sort');
+
+        $rows = Insights::getInstance()->stats->getLlmTopPages($siteId, $range, 1000);
+
+        if ($search) {
+            $rows = array_values(array_filter($rows, fn($r) => stripos($r['url'], (string)$search) !== false));
+        }
+
+        if (!empty($sort) && is_array($sort) && isset($sort[0]['field'])) {
+            $field = $sort[0]['field'];
+            $dir = $sort[0]['direction'] ?? 'desc';
+            usort($rows, function($a, $b) use ($field, $dir) {
+                $aVal = match ($field) {
+                    'url' => strtolower($a['url']),
+                    'totalCrawls' => $a['totalCrawls'],
+                    default => 0,
+                };
+                $bVal = match ($field) {
+                    'url' => strtolower($b['url']),
+                    'totalCrawls' => $b['totalCrawls'],
+                    default => 0,
+                };
+                $cmp = $aVal <=> $bVal;
+                return $dir === 'asc' ? $cmp : -$cmp;
+            });
+        }
+
+        $total = count($rows);
+        $rows = array_slice($rows, ($page - 1) * $limit, $limit);
+
+        $data = [];
+        foreach ($rows as $r) {
+            $data[] = [
+                'id' => md5('llmpage_' . $r['url']),
+                'title' => $r['url'],
+                'url' => $r['url'],
+                'totalCrawls' => number_format($r['totalCrawls']),
+            ];
+        }
+
+        return $this->asSuccess(data: [
+            'pagination' => AdminTable::paginationLinks($page, $total, $limit),
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * LLM time-series data (AJAX endpoint for tab toggle).
+     */
+    public function actionLlmSeries(): Response
+    {
+        $this->requireAcceptsJson();
+        $this->requirePermission(Permission::ViewLlmAnalytics->value);
+
+        $request = Craft::$app->getRequest();
+        $settings = Insights::getInstance()->getSettings();
+
+        $siteId = (int)($request->getQueryParam('siteId')
+            ?? Craft::$app->getSites()->getCurrentSite()->id);
+        $range = $request->getQueryParam('range', $settings->defaultDateRange);
+        $groupBy = $request->getQueryParam('groupBy', 'bot');
+
+        return $this->asJson(
+            Insights::getInstance()->stats->getLlmTimeSeries($siteId, $range, $groupBy)
+        );
     }
 
     /**

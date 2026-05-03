@@ -1,0 +1,191 @@
+{% extends '_layouts/cp' %}
+{% import '_includes/forms.twig' as forms %}
+
+{% do view.registerAssetBundle('samuelreichor\\insights\\web\\assets\\InsightsAsset') %}
+{% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') %}
+
+{% set title = 'LLM Bots'|t('insights') %}
+{% set selectedSubnavItem = 'llm' %}
+
+{% set selectableSites = craft.app.sites.getEditableSites() %}
+{% set selectedSite = craft.app.sites.getSiteById(selectedSiteId) %}
+
+{% set crumbs = [] %}
+{% if craft.app.getIsMultiSite() %}
+    {% set crumbs = crumbs|merge([{
+        id: 'site-crumb',
+        icon: 'world',
+        label: selectedSite.name|t('site'),
+        menu: {
+            items: siteMenuItems(selectableSites, selectedSite),
+            label: 'Select site'|t('app'),
+        },
+    }]) %}
+{% endif %}
+{% set crumbs = crumbs|merge([
+    { label: 'Insights'|t('insights'), url: cpUrl('insights') },
+]) %}
+
+{% set typeLabels = {
+    direct: 'Direct'|t('insights'),
+    negotiated: 'Negotiated'|t('insights'),
+} %}
+
+{% block content %}
+<div class="insights-page">
+    <div class="insights-llm-toolbar">
+        {{ forms.selectField({
+            id: 'range-select',
+            name: 'range',
+            options: [
+                { label: 'Today'|t('insights'), value: 'today' },
+                { label: 'Last 7 Days'|t('insights'), value: '7d' },
+                { label: 'Last 30 Days'|t('insights'), value: '30d' },
+                { label: 'Last 90 Days'|t('insights'), value: '90d' },
+                { label: 'Last 12 Months'|t('insights'), value: '12m' },
+            ],
+            value: selectedRange,
+        }) }}
+    </div>
+
+    <div class="insights-kpis">
+        <div class="insights-kpi">
+            <div class="insights-kpi-label">
+                {{ 'Total Visits'|t('insights') }}
+                <span class="insights-kpi-trend insights-kpi-trend-inline {{ totals.totalVisitsTrend >= 0 ? 'positive' : 'negative' }}">
+                    {% if totals.totalVisitsTrend >= 0 %}
+                        <span>&#8593;</span>
+                    {% else %}
+                        <span>&#8595;</span>
+                    {% endif %}
+                    {{ totals.totalVisitsTrend|abs }}%
+                </span>
+            </div>
+            <div class="insights-llm-split">
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.totalRequests|number }}</div>
+                    <div class="insights-llm-split-label">{{ 'Bots'|t('insights') }}</div>
+                </div>
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.humanRequests|number }}</div>
+                    <div class="insights-llm-split-label">{{ 'Humans'|t('insights') }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="insights-kpi">
+            <div class="insights-kpi-label">{{ 'Unique Bots'|t('insights') }}</div>
+            <div class="insights-kpi-value">{{ totals.uniqueBots|number }}</div>
+            <div class="insights-kpi-trend neutral">{{ 'distinct AI crawlers'|t('insights') }}</div>
+        </div>
+        <div class="insights-kpi">
+            <div class="insights-kpi-label">{{ 'Top Crawler'|t('insights') }}</div>
+            <div class="insights-kpi-value">{{ totals.topBot ?? '—' }}</div>
+            <div class="insights-kpi-trend neutral">
+                {% if totals.topBot %}{{ '{share}% of traffic'|t('insights', { share: totals.topBotShare }) }}{% else %}{{ 'No bot activity yet'|t('insights') }}{% endif %}
+            </div>
+        </div>
+        <div class="insights-kpi">
+            <div class="insights-kpi-label">{{ 'Delivery Split'|t('insights') }}</div>
+            <div class="insights-llm-split">
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.directShare }}%</div>
+                    <div class="insights-llm-split-label">{{ 'Direct'|t('insights') }}</div>
+                </div>
+                <div class="insights-llm-split-col">
+                    <div class="insights-llm-split-pct">{{ totals.negotiatedShare }}%</div>
+                    <div class="insights-llm-split-label">{{ 'Negotiated'|t('insights') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="insights-chart-container">
+        <div class="insights-chart-header">
+            <h2>{{ 'Crawl Activity'|t('insights') }}</h2>
+            <div class="insights-llm-tabs" data-llm-tabs>
+                <button type="button" class="{% if selectedGroupBy == 'total' %}is-active{% endif %}" data-group="total">{{ 'Total'|t('insights') }}</button>
+                <button type="button" class="{% if selectedGroupBy == 'bot' %}is-active{% endif %}" data-group="bot">{{ 'By Bot'|t('insights') }}</button>
+                <button type="button" class="{% if selectedGroupBy == 'type' %}is-active{% endif %}" data-group="type">{{ 'By Delivery'|t('insights') }}</button>
+            </div>
+        </div>
+        <div class="insights-chart-wrapper">
+            <canvas id="llm-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="insights-dual-tables">
+        <div class="insights-table-section">
+            <h3>{{ 'Crawlers'|t('insights') }}</h3>
+            <div id="llm-crawlers-table"></div>
+        </div>
+        <div class="insights-table-section">
+            <h3>{{ 'Top Visited Markdowns'|t('insights') }}</h3>
+            <div id="llm-top-pages-table"></div>
+        </div>
+    </div>
+</div>
+
+{% js %}
+document.addEventListener('DOMContentLoaded', function() {
+    InsightsLlm.init({
+        siteId: {{ selectedSiteId }},
+        range: '{{ selectedRange }}',
+        groupBy: '{{ selectedGroupBy }}',
+        typeLabels: {{ typeLabels|json_encode|raw }},
+        series: {{ series|json_encode|raw }}
+    });
+
+    var siteId = {{ selectedSiteId }};
+    var range = '{{ selectedRange }}';
+
+    function crawlersEndpoint() {
+        return Craft.getActionUrl('insights/dashboard/llm-crawlers-table-data', {
+            siteId: siteId, range: range
+        });
+    }
+
+    function topPagesEndpoint() {
+        return Craft.getActionUrl('insights/dashboard/llm-top-pages-table-data', {
+            siteId: siteId, range: range
+        });
+    }
+
+    var crawlersTable = new Craft.VueAdminTable({
+        columns: [
+            { name: 'botName', title: Craft.t('insights', 'Bot'), sortField: 'botName' },
+            { name: 'requests', title: Craft.t('insights', 'Requests'), sortField: 'requests' }
+        ],
+        container: '#llm-crawlers-table',
+        tableDataEndpoint: crawlersEndpoint(),
+        search: true,
+        searchPlaceholder: Craft.t('insights', 'Search crawlers...'),
+        emptyMessage: Craft.t('insights', 'No crawlers detected yet'),
+        perPage: 25,
+        padded: true
+    });
+
+    var topPagesTable = new Craft.VueAdminTable({
+        columns: [
+            { name: 'url', title: Craft.t('insights', 'Markdown'), sortField: 'url' },
+            { name: 'totalCrawls', title: Craft.t('insights', 'Visits'), sortField: 'totalCrawls' }
+        ],
+        container: '#llm-top-pages-table',
+        tableDataEndpoint: topPagesEndpoint(),
+        search: true,
+        searchPlaceholder: Craft.t('insights', 'Search markdowns...'),
+        emptyMessage: Craft.t('insights', 'No markdowns visited yet'),
+        perPage: 25,
+        padded: true
+    });
+
+    // Full page reload on range change — KPIs and chart series are
+    // server-rendered, so the AJAX table reloads alone would leave them stale.
+    var rangeSelect = document.getElementById('range-select');
+    rangeSelect.addEventListener('change', function() {
+        var url = new URL(window.location.href);
+        url.searchParams.set('range', rangeSelect.value);
+        window.location.href = url.toString();
+    });
+});
+{% endjs %}
+{% endblock %}

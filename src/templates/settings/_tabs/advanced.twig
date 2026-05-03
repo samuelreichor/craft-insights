@@ -91,6 +91,8 @@
             <tr><td>{{ 'Campaigns'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.campaigns|number_format }}</td></tr>
             <tr><td>{{ 'Devices'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.devices|number_format }}</td></tr>
             <tr><td>{{ 'Countries'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.countries|number_format }}</td></tr>
+            <tr><td>{{ 'LLM Requests'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.llmRequests|number_format }}</td></tr>
+            <tr><td>{{ 'LLM Bots'|t('insights') }}:</td><td style="text-align: right;">{{ storageStats.llmBots|number_format }}</td></tr>
             {% if storageStats.oldestDate %}
             <tr><td colspan="2" style="padding-top: 8px; border-top: 1px solid var(--gray-200);">{{ 'Date range'|t('insights') }}: {{ storageStats.oldestDate }} – {{ storageStats.newestDate }}</td></tr>
             {% endif %}

@@ -6,7 +6,9 @@ use Craft;
 use craft\console\Controller;
 use craft\helpers\StringHelper;
 use samuelreichor\insights\Constants;
+use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\Insights;
+use samuelreichor\llmify\services\HelperService as LlmifyHelper;
 use yii\console\ExitCode;
 
 /**
@@ -59,6 +61,10 @@ class SeedController extends Controller
         $this->seedSearches($siteId);
         $this->seedScrollDepth($siteId);
         $this->seedSessions($siteId);
+
+        if (Utils::isPluginInstalledAndEnabled('llmify')) {
+            $this->seedLlmRequests($siteId);
+        }
 
         $this->stdout("\nDemo data seeded successfully!\n\n");
 
@@ -672,6 +678,146 @@ class SeedController extends Controller
         }
 
         $this->stdout(" {$count} records\n");
+    }
+
+    private function seedLlmRequests(int $siteId): void
+    {
+        $this->stdout("  Seeding LLM bot requests...");
+
+        // Pages bots actually crawl. Mix of regular content + LLMify-specific
+        // index files. Index files only ever appear with type=direct.
+        $contentUris = [
+            '__home__' => 30,
+            'about' => 12,
+            'blog' => 22,
+            'blog/article-1' => 18,
+            'blog/article-2' => 14,
+            'blog/article-3' => 10,
+            'products' => 16,
+            'products/item-1' => 8,
+            'pricing' => 14,
+            'faq' => 6,
+        ];
+
+        $contentPages = [];
+        foreach ($contentUris as $uri => $weight) {
+            $contentPages[LlmifyHelper::getMarkdownPath($uri, $siteId)] = $weight;
+        }
+
+        $indexPages = [
+            '/llms.txt' => 12,
+            '/llms-full.txt' => 7,
+        ];
+
+        // Bots and their relative traffic share.
+        $bots = [
+            'ChatGPT-User' => 45,
+            'ClaudeBot' => 22,
+            'GPTBot' => 14,
+            'PerplexityBot' => 9,
+            'Amazonbot' => 6,
+            'Bytespider' => 4,
+        ];
+
+        $entryClass = \craft\elements\Entry::class;
+        $db = Insights::getInstance()->database->getConnection();
+        $count = 0;
+        $botTotals = [];
+
+        for ($d = $this->days; $d >= 0; $d--) {
+            $date = date('Y-m-d', strtotime("-{$d} days"));
+            $weekendFactor = in_array(date('N', strtotime($date)), [6, 7]) ? 0.7 : 1.0;
+
+            foreach ($bots as $botName => $botWeight) {
+                $randomFactor = mt_rand(60, 140) / 100;
+                $botShare = ($botWeight / 100) * $weekendFactor * $randomFactor;
+
+                // Content pages — split into direct (~70%) and negotiated (~30%).
+                foreach ($contentPages as $url => $pageWeight) {
+                    $totalHits = (int)round($pageWeight * $botShare);
+                    if ($totalHits <= 0) {
+                        continue;
+                    }
+
+                    $directHits = (int)round($totalHits * (mt_rand(60, 80) / 100));
+                    $negotiatedHits = $totalHits - $directHits;
+
+                    if ($directHits > 0) {
+                        $this->upsertLlmRequest($db, $siteId, $date, $botName, 'direct', $entryClass, $url, $directHits);
+                        $count++;
+                    }
+                    if ($negotiatedHits > 0) {
+                        $this->upsertLlmRequest($db, $siteId, $date, $botName, 'negotiated', $entryClass, $url, $negotiatedHits);
+                        $count++;
+                    }
+
+                    $botTotals[$botName] = ($botTotals[$botName] ?? 0) + $totalHits;
+                }
+
+                // Index files — direct only, no element context.
+                foreach ($indexPages as $url => $pageWeight) {
+                    $hits = (int)round($pageWeight * $botShare);
+                    if ($hits <= 0) {
+                        continue;
+                    }
+
+                    $this->upsertLlmRequest($db, $siteId, $date, $botName, 'direct', '', $url, $hits);
+                    $count++;
+                    $botTotals[$botName] = ($botTotals[$botName] ?? 0) + $hits;
+                }
+            }
+        }
+
+        // Mirror the per-bot summary into insights_llm_bots so the dashboard
+        // KPIs (Top Crawler, etc.) and last-seen logic line up.
+        $now = date('Y-m-d H:i:s');
+        foreach ($botTotals as $botName => $total) {
+            $db->createCommand()->upsert(
+                Constants::TABLE_LLM_BOTS,
+                array_merge([
+                    'siteId' => $siteId,
+                    'botName' => $botName,
+                    'lastSeen' => $now,
+                    'totalRequests' => $total,
+                ], $this->getTimestampFields()),
+                [
+                    'lastSeen' => $now,
+                    'totalRequests' => $total,
+                    'dateUpdated' => $now,
+                ]
+            )->execute();
+        }
+
+        $this->stdout(" {$count} records\n");
+    }
+
+    private function upsertLlmRequest(
+        \craft\db\Connection $db,
+        int $siteId,
+        string $date,
+        string $botName,
+        string $requestType,
+        string $elementType,
+        string $url,
+        int $hits,
+    ): void {
+        $db->createCommand()->upsert(
+            Constants::TABLE_LLM_REQUESTS,
+            array_merge([
+                'siteId' => $siteId,
+                'date' => $date,
+                'botName' => $botName,
+                'requestType' => $requestType,
+                'elementType' => $elementType,
+                'url' => $url,
+                'urlHash' => md5($url),
+                'count' => $hits,
+            ], $this->getTimestampFields()),
+            [
+                'count' => $hits,
+                'dateUpdated' => date('Y-m-d H:i:s'),
+            ]
+        )->execute();
     }
 
     /**

@@ -23,6 +23,8 @@ final class Constants
     public const TABLE_SCROLL_DEPTH = '{{%insights_scroll_depth}}';
     public const TABLE_SESSIONS = '{{%insights_sessions}}';
     public const TABLE_NOTIFICATION_LOG = '{{%insights_notification_log}}';
+    public const TABLE_LLM_REQUESTS = '{{%insights_llm_requests}}';
+    public const TABLE_LLM_BOTS = '{{%insights_llm_bots}}';
 
     // Cache Key Prefixes
     public const CACHE_DAILY_SALT = 'insights_salt_';
@@ -61,6 +63,8 @@ final class Constants
             self::TABLE_SCROLL_DEPTH,
             self::TABLE_SESSIONS,
             self::TABLE_NOTIFICATION_LOG,
+            self::TABLE_LLM_REQUESTS,
+            self::TABLE_LLM_BOTS,
         ];
     }
 }

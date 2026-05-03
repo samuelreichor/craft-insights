@@ -8,6 +8,7 @@ use craft\web\View;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use samuelreichor\insights\enums\DateRange;
+use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\variables\InsightsVariable;
 use Twig\Error\LoaderError;
@@ -199,6 +200,8 @@ class PdfService extends Component
         $isPro = $plugin->isPro();
         $chartData = $stats->getChartData($siteId, $range);
 
+        $llmifyInstalled = Utils::isPluginInstalledAndEnabled('llmify');
+
         return [
             'title' => Craft::t('insights', 'Analytics Report'),
             'siteName' => $this->getSiteName($siteId),
@@ -220,6 +223,9 @@ class PdfService extends Component
             'topEntryPages' => $isPro ? $stats->getTopEntryPages($siteId, $range, 20) : [],
             'topExitPages' => $isPro ? $stats->getTopExitPages($siteId, $range, 20) : [],
             'scrollDepth' => $isPro ? $stats->getScrollDepth($siteId, $range, 20) : [],
+            'llmTotals' => $llmifyInstalled ? $stats->getLlmTotals($siteId, $range) : null,
+            'llmTopPages' => $llmifyInstalled ? $stats->getLlmTopPages($siteId, $range, 20) : [],
+            'llmCrawlers' => $llmifyInstalled ? $stats->getLlmBotBreakdown($siteId, $range) : [],
         ];
     }
 

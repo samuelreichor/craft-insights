@@ -83,6 +83,43 @@
         </div>
     {% endif %}
 
+    {% if llmTotals is not null %}
+        <div class="card" style="padding: 4mm 5mm;">
+            <h2 style="margin: 0 0 3mm 0;">{{ 'LLM Bot Activity'|t('insights') }}</h2>
+            <table class="kpi-grid" style="margin: 0;">
+                <tr>
+                    <td class="kpi-cell first">
+                        <div class="kpi-label">
+                            {{ 'Total Visits'|t('insights') }}
+                            <span class="kpi-trend {{ llmTotals.totalVisitsTrend >= 0 ? 'positive' : 'negative' }}" style="display: inline; margin-left: 2mm; font-size: 8pt;">
+                                {{ llmTotals.totalVisitsTrend >= 0 ? '▲' : '▼' }} {{ llmTotals.totalVisitsTrend|abs }}%
+                            </span>
+                        </div>
+                        <div class="kpi-value">{{ llmTotals.totalRequests|number_format }} / {{ llmTotals.humanRequests|number_format }}</div>
+                        <div class="kpi-trend">{{ 'Bots / Humans'|t('insights') }}</div>
+                    </td>
+                    <td class="kpi-cell">
+                        <div class="kpi-label">{{ 'Unique Bots'|t('insights') }}</div>
+                        <div class="kpi-value">{{ llmTotals.uniqueBots|number_format }}</div>
+                        <div class="kpi-trend">{{ 'distinct AI crawlers'|t('insights') }}</div>
+                    </td>
+                    <td class="kpi-cell">
+                        <div class="kpi-label">{{ 'Top Crawler'|t('insights') }}</div>
+                        <div class="kpi-value">{{ llmTotals.topBot ?? '—' }}</div>
+                        <div class="kpi-trend">
+                            {% if llmTotals.topBot %}{{ '{share}% of traffic'|t('insights', { share: llmTotals.topBotShare }) }}{% else %}{{ 'No bot activity yet'|t('insights') }}{% endif %}
+                        </div>
+                    </td>
+                    <td class="kpi-cell last">
+                        <div class="kpi-label">{{ 'Delivery Split'|t('insights') }}</div>
+                        <div class="kpi-value">{{ llmTotals.directShare }}% / {{ llmTotals.negotiatedShare }}%</div>
+                        <div class="kpi-trend">{{ 'Direct / Negotiated'|t('insights') }}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    {% endif %}
+
     {{ _self.section('Top Pages', [
         { key: 'url', label: 'Page' },
         { key: 'views', label: 'Views', numeric: true },
