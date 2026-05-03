@@ -43,6 +43,9 @@ enum Permission: string
     // Entry Sidebar
     case ViewEntryStats = 'insights:viewEntryStats';
 
+    // Data Export (CSV / PDF)
+    case ExportData = 'insights:exportData';
+
     /**
      * Get human-readable label.
      */
@@ -79,6 +82,8 @@ enum Permission: string
             self::ViewLlmAnalytics => 'View LLM Bots',
             // Entry Sidebar
             self::ViewEntryStats => 'View Entry Stats',
+            // Data Export
+            self::ExportData => 'Export Data',
         };
     }
 

@@ -410,6 +410,9 @@ class Insights extends Plugin
                             Permission::ViewEntryStats->value => [
                                 'label' => Craft::t('insights', Permission::ViewEntryStats->label()),
                             ],
+                            Permission::ExportData->value => [
+                                'label' => Craft::t('insights', Permission::ExportData->label()),
+                            ],
                         ]
                     ),
                 ];

@@ -32,46 +32,48 @@
 {% endmacro %}
 
 {% block content %}
-    {% set avgMinutes = (summary.avgTimeOnPage / 60)|round(0, 'floor') %}
-    {% set avgSeconds = summary.avgTimeOnPage % 60 %}
+    {% if summary is not null %}
+        {% set avgMinutes = (summary.avgTimeOnPage / 60)|round(0, 'floor') %}
+        {% set avgSeconds = summary.avgTimeOnPage % 60 %}
 
-    <h2>{{ 'Summary'|t('insights') }}</h2>
-    <table class="kpi-grid kpi-grid-summary">
-        <tr>
-            <td class="kpi-cell first">
-                <div class="kpi-card">
-                    <div class="kpi-label">{{ 'Pageviews'|t('insights') }}</div>
-                    <div class="kpi-value">{{ summary.pageviews|number_format }}</div>
-                    <div class="kpi-trend {{ summary.pageviewsTrend >= 0 ? 'positive' : 'negative' }}">
-                        {{ summary.pageviewsTrend >= 0 ? '▲' : '▼' }} {{ summary.pageviewsTrend|abs }}% {{ 'vs previous'|t('insights') }}
+        <h2>{{ 'Summary'|t('insights') }}</h2>
+        <table class="kpi-grid kpi-grid-summary">
+            <tr>
+                <td class="kpi-cell first">
+                    <div class="kpi-card">
+                        <div class="kpi-label">{{ 'Pageviews'|t('insights') }}</div>
+                        <div class="kpi-value">{{ summary.pageviews|number_format }}</div>
+                        <div class="kpi-trend {{ summary.pageviewsTrend >= 0 ? 'positive' : 'negative' }}">
+                            {{ summary.pageviewsTrend >= 0 ? '▲' : '▼' }} {{ summary.pageviewsTrend|abs }}% {{ 'vs previous'|t('insights') }}
+                        </div>
                     </div>
-                </div>
-            </td>
-            <td class="kpi-cell">
-                <div class="kpi-card">
-                    <div class="kpi-label">{{ 'Unique Visitors'|t('insights') }}</div>
-                    <div class="kpi-value">{{ summary.uniqueVisitors|number_format }}</div>
-                    <div class="kpi-trend {{ summary.visitorsTrend >= 0 ? 'positive' : 'negative' }}">
-                        {{ summary.visitorsTrend >= 0 ? '▲' : '▼' }} {{ summary.visitorsTrend|abs }}% {{ 'vs previous'|t('insights') }}
+                </td>
+                <td class="kpi-cell">
+                    <div class="kpi-card">
+                        <div class="kpi-label">{{ 'Unique Visitors'|t('insights') }}</div>
+                        <div class="kpi-value">{{ summary.uniqueVisitors|number_format }}</div>
+                        <div class="kpi-trend {{ summary.visitorsTrend >= 0 ? 'positive' : 'negative' }}">
+                            {{ summary.visitorsTrend >= 0 ? '▲' : '▼' }} {{ summary.visitorsTrend|abs }}% {{ 'vs previous'|t('insights') }}
+                        </div>
                     </div>
-                </div>
-            </td>
-            <td class="kpi-cell">
-                <div class="kpi-card">
-                    <div class="kpi-label">{{ 'Avg. Time / Page'|t('insights') }}</div>
-                    <div class="kpi-value">{{ avgMinutes }}m {{ avgSeconds }}s</div>
-                    <div class="kpi-trend">{{ 'Average per pageview'|t('insights') }}</div>
-                </div>
-            </td>
-            <td class="kpi-cell last">
-                <div class="kpi-card">
-                    <div class="kpi-label">{{ 'Bounce Rate'|t('insights') }}</div>
-                    <div class="kpi-value">{{ summary.bounceRate }}%</div>
-                    <div class="kpi-trend">{{ 'Single page visits'|t('insights') }}</div>
-                </div>
-            </td>
-        </tr>
-    </table>
+                </td>
+                <td class="kpi-cell">
+                    <div class="kpi-card">
+                        <div class="kpi-label">{{ 'Avg. Time / Page'|t('insights') }}</div>
+                        <div class="kpi-value">{{ avgMinutes }}m {{ avgSeconds }}s</div>
+                        <div class="kpi-trend">{{ 'Average per pageview'|t('insights') }}</div>
+                    </div>
+                </td>
+                <td class="kpi-cell last">
+                    <div class="kpi-card">
+                        <div class="kpi-label">{{ 'Bounce Rate'|t('insights') }}</div>
+                        <div class="kpi-value">{{ summary.bounceRate }}%</div>
+                        <div class="kpi-trend">{{ 'Single page visits'|t('insights') }}</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    {% endif %}
 
     {% if chartSvg %}
         <div class="chart-card">
@@ -120,70 +122,92 @@
         </div>
     {% endif %}
 
-    {{ _self.section('Top Pages', [
-        { key: 'url', label: 'Page' },
-        { key: 'views', label: 'Views', numeric: true },
-        { key: 'uniqueVisitors', label: 'Visitors', numeric: true },
-    ], topPages) }}
+    {% if topPages is not null %}
+        {{ _self.section('Top Pages', [
+            { key: 'url', label: 'Page' },
+            { key: 'views', label: 'Views', numeric: true },
+            { key: 'uniqueVisitors', label: 'Visitors', numeric: true },
+        ], topPages) }}
+    {% endif %}
 
-    {{ _self.section('Traffic Sources', [
-        { key: 'referrerDomain', label: 'Source' },
-        { key: 'referrerType', label: 'Type' },
-        { key: 'visits', label: 'Visits', numeric: true },
-    ], topReferrers) }}
+    {% if topReferrers is not null %}
+        {{ _self.section('Traffic Sources', [
+            { key: 'referrerDomain', label: 'Source' },
+            { key: 'referrerType', label: 'Type' },
+            { key: 'visits', label: 'Visits', numeric: true },
+        ], topReferrers) }}
+    {% endif %}
 
-    {{ _self.section('Devices', [
-        { key: 'deviceType', label: 'Device' },
-        { key: 'visits', label: 'Visits', numeric: true },
-    ], devices) }}
+    {% if devices is not null %}
+        {{ _self.section('Devices', [
+            { key: 'deviceType', label: 'Device' },
+            { key: 'visits', label: 'Visits', numeric: true },
+        ], devices) }}
+    {% endif %}
 
-    {{ _self.section('Browsers', [
-        { key: 'browserFamily', label: 'Browser' },
-        { key: 'visits', label: 'Visits', numeric: true },
-    ], browsers) }}
+    {% if browsers is not null %}
+        {{ _self.section('Browsers', [
+            { key: 'browserFamily', label: 'Browser' },
+            { key: 'visits', label: 'Visits', numeric: true },
+        ], browsers) }}
+    {% endif %}
 
-    {% if isPro %}
+    {% if topCountries is not null %}
         {{ _self.section('Top Countries', [
             { key: 'countryCode', label: 'Country' },
             { key: 'visits', label: 'Visits', numeric: true },
         ], topCountries) }}
+    {% endif %}
 
+    {% if topCampaigns is not null %}
         {{ _self.section('Campaigns', [
             { key: 'utmSource', label: 'Source' },
             { key: 'utmMedium', label: 'Medium' },
             { key: 'utmCampaign', label: 'Campaign' },
             { key: 'visits', label: 'Visits', numeric: true },
         ], topCampaigns) }}
+    {% endif %}
 
+    {% if topEvents is not null %}
         {{ _self.section('Top Events', [
             { key: 'eventName', label: 'Event' },
             { key: 'eventCategory', label: 'Category' },
             { key: 'count', label: 'Count', numeric: true },
             { key: 'uniqueVisitors', label: 'Visitors', numeric: true },
         ], topEvents) }}
+    {% endif %}
 
+    {% if topOutboundLinks is not null %}
         {{ _self.section('Outbound Links', [
             { key: 'targetDomain', label: 'Domain' },
             { key: 'clicks', label: 'Clicks', numeric: true },
             { key: 'uniqueVisitors', label: 'Visitors', numeric: true },
         ], topOutboundLinks) }}
+    {% endif %}
 
+    {% if topSearches is not null %}
         {{ _self.section('Site Searches', [
             { key: 'searchTerm', label: 'Search Term' },
             { key: 'searches', label: 'Searches', numeric: true },
             { key: 'uniqueVisitors', label: 'Visitors', numeric: true },
         ], topSearches) }}
+    {% endif %}
 
+    {% if topEntryPages is not null %}
         {{ _self.section('Entry Pages', [
             { key: 'url', label: 'Page' },
             { key: 'sessions', label: 'Sessions', numeric: true },
         ], topEntryPages) }}
+    {% endif %}
 
+    {% if topExitPages is not null %}
         {{ _self.section('Exit Pages', [
             { key: 'url', label: 'Page' },
             { key: 'sessions', label: 'Sessions', numeric: true },
         ], topExitPages) }}
+    {% endif %}
 
+    {% if scrollDepth is not null %}
         {{ _self.section('Scroll Depth', [
             { key: 'url', label: 'Page' },
             { key: 'milestone25', label: '25%', numeric: true },

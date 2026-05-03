@@ -4,10 +4,12 @@ namespace samuelreichor\insights\services;
 
 use Craft;
 use craft\base\Component;
+use craft\elements\User;
 use craft\web\View;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use samuelreichor\insights\enums\DateRange;
+use samuelreichor\insights\enums\Permission;
 use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\variables\InsightsVariable;
@@ -193,14 +195,25 @@ class PdfService extends Component
      *
      * @return array<string, mixed>
      */
-    public function buildDashboardData(int $siteId, string $range): array
+    public function buildDashboardData(int $siteId, string $range, ?User $user = null): array
     {
         $plugin = Insights::getInstance();
         $stats = $plugin->stats;
         $isPro = $plugin->isPro();
-        $chartData = $stats->getChartData($siteId, $range);
-
         $llmifyInstalled = Utils::isPluginInstalledAndEnabled('llmify');
+
+        // When no user is passed (scheduled email / queue context) we treat
+        // the caller as fully privileged — recipients are configured by an
+        // admin and we don't have a specific user identity to gate on.
+        // Sections the user can't see come back as `null`, so the Twig
+        // template can hide them entirely instead of rendering an empty stub.
+        $can = static fn(string $perm): bool => $user === null || $user->can($perm);
+
+        $chartSvg = '';
+        if ($can(Permission::ViewDashboardChart->value)) {
+            $chartData = $stats->getChartData($siteId, $range);
+            $chartSvg = $this->renderLineChartSvg($chartData);
+        }
 
         return [
             'title' => Craft::t('insights', 'Analytics Report'),
@@ -209,23 +222,49 @@ class PdfService extends Component
             'rangePeriod' => $this->getRangePeriod($range),
             'exportedAt' => date('Y-m-d H:i'),
             'isPro' => $isPro,
-            'summary' => $stats->getSummary($siteId, $range),
-            'chartSvg' => $this->renderLineChartSvg($chartData),
-            'topPages' => $stats->getTopPages($siteId, $range, 20),
-            'topReferrers' => $stats->getTopReferrers($siteId, $range, 20),
-            'devices' => $stats->getDeviceBreakdown($siteId, $range),
-            'browsers' => $stats->getBrowserBreakdown($siteId, $range),
-            'topCountries' => $isPro ? $this->enrichCountries($stats->getTopCountries($siteId, $range, 20)) : [],
-            'topCampaigns' => $isPro ? $stats->getTopCampaigns($siteId, $range, 20) : [],
-            'topEvents' => $isPro ? $stats->getTopEvents($siteId, $range, 20) : [],
-            'topOutboundLinks' => $isPro ? $stats->getTopOutboundLinks($siteId, $range, 20) : [],
-            'topSearches' => $isPro ? $stats->getTopSearches($siteId, $range, 20) : [],
-            'topEntryPages' => $isPro ? $stats->getTopEntryPages($siteId, $range, 20) : [],
-            'topExitPages' => $isPro ? $stats->getTopExitPages($siteId, $range, 20) : [],
-            'scrollDepth' => $isPro ? $stats->getScrollDepth($siteId, $range, 20) : [],
-            'llmTotals' => $llmifyInstalled ? $stats->getLlmTotals($siteId, $range) : null,
-            'llmTopPages' => $llmifyInstalled ? $stats->getLlmTopPages($siteId, $range, 20) : [],
-            'llmCrawlers' => $llmifyInstalled ? $stats->getLlmBotBreakdown($siteId, $range) : [],
+            'summary' => $can(Permission::ViewDashboardKpis->value)
+                ? $stats->getSummary($siteId, $range)
+                : null,
+            'chartSvg' => $chartSvg,
+            'topPages' => $can(Permission::ViewDashboardPages->value)
+                ? $stats->getTopPages($siteId, $range, 20)
+                : null,
+            'topReferrers' => $can(Permission::ViewDashboardReferrers->value)
+                ? $stats->getTopReferrers($siteId, $range, 20)
+                : null,
+            'devices' => $can(Permission::ViewDashboardDevices->value)
+                ? $stats->getDeviceBreakdown($siteId, $range)
+                : null,
+            'browsers' => $can(Permission::ViewDashboardDevices->value)
+                ? $stats->getBrowserBreakdown($siteId, $range)
+                : null,
+            'topCountries' => $isPro && $can(Permission::ViewDashboardCountries->value)
+                ? $this->enrichCountries($stats->getTopCountries($siteId, $range, 20))
+                : null,
+            'topCampaigns' => $isPro && $can(Permission::ViewDashboardCampaigns->value)
+                ? $stats->getTopCampaigns($siteId, $range, 20)
+                : null,
+            'topEvents' => $isPro && $can(Permission::ViewDashboardEvents->value)
+                ? $stats->getTopEvents($siteId, $range, 20)
+                : null,
+            'topOutboundLinks' => $isPro && $can(Permission::ViewDashboardOutbound->value)
+                ? $stats->getTopOutboundLinks($siteId, $range, 20)
+                : null,
+            'topSearches' => $isPro && $can(Permission::ViewDashboardSearches->value)
+                ? $stats->getTopSearches($siteId, $range, 20)
+                : null,
+            'topEntryPages' => $isPro && $can(Permission::ViewDashboardEntryExitPages->value)
+                ? $stats->getTopEntryPages($siteId, $range, 20)
+                : null,
+            'topExitPages' => $isPro && $can(Permission::ViewDashboardEntryExitPages->value)
+                ? $stats->getTopExitPages($siteId, $range, 20)
+                : null,
+            'scrollDepth' => $isPro && $can(Permission::ViewDashboardScrollDepth->value)
+                ? $stats->getScrollDepth($siteId, $range, 20)
+                : null,
+            'llmTotals' => $llmifyInstalled && $can(Permission::ViewDashboardLlm->value)
+                ? $stats->getLlmTotals($siteId, $range)
+                : null,
         ];
     }
 

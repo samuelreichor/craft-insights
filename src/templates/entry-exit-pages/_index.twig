@@ -62,6 +62,7 @@
             }) }}
         </div>
         <div class="flex-grow"></div>
+        {% if currentUser.can('insights:exportData') %}
         {% include '_includes/disclosuremenu.twig' with {
             withButton: true,
             buttonLabel: 'Export Entry Pages'|t('insights'),
@@ -78,6 +79,7 @@
                 { label: 'Export PDF'|t('insights'), url: actionUrl('insights/export/exit-pages', { siteId: selectedSiteId, range: selectedRange, format: 'pdf' }), attributes: { id: 'exit-export-pdf' } },
             ],
         } only %}
+        {% endif %}
     </div>
 
     <div class="insights-dual-tables">
