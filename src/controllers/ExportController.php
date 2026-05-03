@@ -36,7 +36,7 @@ class ExportController extends Controller
         return $this->handleExport(
             fn(StatsService $stats, int $siteId, string $range) => $stats->getTopReferrers($siteId, $range, 1000),
             'referrers',
-            'Referrers',
+            'Traffic Sources',
             [
                 ['key' => 'referrerDomain', 'label' => 'Source'],
                 ['key' => 'referrerType', 'label' => 'Type'],
