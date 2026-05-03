@@ -59,7 +59,7 @@ enum Permission: string
             self::ViewDashboardRealtime => 'View Dashboard Realtime',
             self::ViewDashboardChart => 'View Dashboard Chart',
             self::ViewDashboardPages => 'View Dashboard Pages',
-            self::ViewDashboardReferrers => 'View Dashboard Referrers',
+            self::ViewDashboardReferrers => 'View Dashboard Traffic Sources',
             self::ViewDashboardDevices => 'View Dashboard Devices',
             self::ViewDashboardCampaigns => 'View Dashboard Campaigns',
             self::ViewDashboardCountries => 'View Dashboard Countries',
@@ -71,7 +71,7 @@ enum Permission: string
             self::ViewDashboardLlm => 'View Dashboard LLM Bots',
             // Detail Pages
             self::ViewPages => 'View Pages',
-            self::ViewReferrers => 'View Referrers',
+            self::ViewReferrers => 'View Traffic Sources',
             self::ViewCampaigns => 'View Campaigns',
             self::ViewCountries => 'View Countries',
             self::ViewEvents => 'View Events',

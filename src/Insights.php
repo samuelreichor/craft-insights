@@ -185,7 +185,7 @@ class Insights extends Plugin
 
         if ($user->can(Permission::ViewReferrers->value)) {
             $allowedPages['referrers'] = [
-                'label' => Craft::t('insights', 'Referrers'),
+                'label' => Craft::t('insights', 'Traffic Sources'),
                 'url' => 'insights/referrers',
             ];
         }

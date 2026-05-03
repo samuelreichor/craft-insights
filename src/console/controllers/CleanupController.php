@@ -28,7 +28,7 @@ class CleanupController extends Controller
 
         $this->stdout("\nCleanup completed:\n");
         $this->stdout("  - Pageviews: {$results['pageviews']} records deleted\n");
-        $this->stdout("  - Referrers: {$results['referrers']} records deleted\n");
+        $this->stdout("  - Traffic Sources: {$results['referrers']} records deleted\n");
         $this->stdout("  - Campaigns: {$results['campaigns']} records deleted\n");
         $this->stdout("  - Devices: {$results['devices']} records deleted\n");
         $this->stdout("  - Countries: {$results['countries']} records deleted\n");
@@ -58,7 +58,7 @@ class CleanupController extends Controller
         $this->stdout("\nInsights Storage Statistics:\n");
         $this->stdout("============================\n\n");
         $this->stdout("  Pageviews:    {$stats['pageviews']} records\n");
-        $this->stdout("  Referrers:    {$stats['referrers']} records\n");
+        $this->stdout("  Traffic Sources: {$stats['referrers']} records\n");
         $this->stdout("  Campaigns:    {$stats['campaigns']} records\n");
         $this->stdout("  Devices:      {$stats['devices']} records\n");
         $this->stdout("  Countries:    {$stats['countries']} records\n");
