@@ -1,5 +1,9 @@
 # Release Notes for Insights
 
+## 1.3.1 - 2026-05-06
+
+- Loosens `dompdf/dompdf` constraint to `^2.0.3 || ^3.0` to resolve dependency conflicts with plugins like `verbb/formie`
+
 ## 1.3.0 - 2026-05-01
 
 - Adds export as PDF feature to all pages
