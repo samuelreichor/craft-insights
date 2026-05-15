@@ -1,5 +1,12 @@
 # Release Notes for Insights
 
+## 1.4.0 - 2026-05-16
+
+- Add support for [LLMify](https://plugins.craftcms.com/llmify) when installed
+- Fix broken permissions for exports
+- Rename Referrers to traffic sources
+- Fix queue job error with cached entries that are already deleted
+
 ## 1.3.1 - 2026-05-06
 
 - Loosens `dompdf/dompdf` constraint to `^2.0.3 || ^3.0` to resolve dependency conflicts with plugins like `verbb/formie`
