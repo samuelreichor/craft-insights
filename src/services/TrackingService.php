@@ -260,8 +260,16 @@ class TrackingService extends Component
         // Check cache first (1 hour TTL)
         $cachedId = Craft::$app->cache->get($cacheKey);
         if ($cachedId !== false) {
-            // Return null for cached "not found" (stored as 0)
-            return $cachedId === 0 ? null : $cachedId;
+            // Cached "not found"
+            if ($cachedId === 0) {
+                return null;
+            }
+            // Verify the entry still exists — it may have been hard-deleted since
+            // caching, which would otherwise blow up FK constraints on write.
+            if ($this->entryRowExists($cachedId)) {
+                return $cachedId;
+            }
+            Craft::$app->cache->delete($cacheKey);
         }
 
         // Try to find an entry matching this URL
@@ -278,6 +286,19 @@ class TrackingService extends Component
         Craft::$app->cache->set($cacheKey, $entryId ?? 0, 3600);
 
         return $entryId;
+    }
+
+    /**
+     * Cheap existence check against the entries table, used to guard against
+     * stale cached entry IDs whose target row has been hard-deleted.
+     */
+    private function entryRowExists(int $entryId): bool
+    {
+        $db = Insights::getInstance()->database->getConnection();
+        return (new \craft\db\Query())
+            ->from('{{%entries}}')
+            ->where(['id' => $entryId])
+            ->exists($db);
     }
 
     /**
