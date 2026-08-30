@@ -54,6 +54,16 @@
     warning: config.attachPdfReport is defined ? configWarning('attachPdfReport'),
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Send Reports via Cron Only'|t('insights'),
+    instructions: 'Disable the automatic request-based check and send reports exclusively through a cron job running `./craft insights/notifications/send`. Recommended for reliable delivery times.'|t('insights'),
+    name: 'useCronForEmails',
+    on: settings.useCronForEmails,
+    errors: settings.getErrors('useCronForEmails'),
+    disabled: readOnly or config.useCronForEmails is defined,
+    warning: config.useCronForEmails is defined ? configWarning('useCronForEmails'),
+}) }}
+
 <div class="field">
     <div class="instructions">
         <p>{{ 'Send a one-off test email to your own address ({email}).'|t('insights', { email: currentUser.email ?? '' }) }}</p>

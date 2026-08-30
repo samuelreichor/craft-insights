@@ -105,6 +105,7 @@ Located in `src/enums/`:
 - `ReferrerType` - direct, search, social, referral
 - `ScreenCategory` - s (<768px), m (768-1199px), l (≥1200px)
 - `ScrollDepthMilestone` - Percent25, Percent50, Percent75, Percent100
+- `NotificationStatus` - queued, sent, failed, skipped (lifecycle of notification log rows)
 - `LogLevel` - Default, Debug
 - `Permission` - Centralized permission management for dashboard and page access
 

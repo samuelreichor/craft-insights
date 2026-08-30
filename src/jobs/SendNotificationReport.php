@@ -22,6 +22,12 @@ class SendNotificationReport extends BaseJob
      */
     public string $frequency = '';
 
+    /**
+     * Id of the pending notification-log row created when this job was
+     * queued. Updated in place with the final status (sent/failed/skipped).
+     */
+    public ?int $logId = null;
+
     public function execute($queue): void
     {
         $frequency = EmailFrequency::tryFrom($this->frequency);
@@ -30,7 +36,7 @@ class SendNotificationReport extends BaseJob
         }
 
         try {
-            Insights::getInstance()->notifications->sendReport($frequency);
+            Insights::getInstance()->notifications->sendQueuedReport($frequency, $this->logId);
         } catch (Throwable $e) {
             Insights::getInstance()->logger->error(
                 "Failed to send notification report: {$e->getMessage()}",

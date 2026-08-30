@@ -42,6 +42,7 @@ final class Constants
     public const CLEANUP_INTERVAL = 86400; // 24 hours in seconds
     public const SESSION_TIMEOUT = 1800; // 30 minutes in seconds
     public const NOTIFICATION_CHECK_INTERVAL = 3600; // 1 hour in seconds
+    public const NOTIFICATION_PENDING_TTL = 86400; // 24 hours in seconds
 
     /**
      * Get all table names as array.

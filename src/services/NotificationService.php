@@ -9,6 +9,7 @@ use craft\helpers\UrlHelper;
 use DateTime;
 use samuelreichor\insights\Constants;
 use samuelreichor\insights\enums\EmailFrequency;
+use samuelreichor\insights\enums\NotificationStatus;
 use samuelreichor\insights\helpers\Utils;
 use samuelreichor\insights\Insights;
 use samuelreichor\insights\jobs\SendNotificationReport;
@@ -34,6 +35,11 @@ class NotificationService extends Component
     {
         $plugin = Insights::getInstance();
         $logger = $plugin->logger;
+        $settings = $plugin->getSettings();
+
+        if ($settings->useCronForEmails) {
+            return;
+        }
 
         $cache = Craft::$app->getCache();
         if ($cache->get(Constants::CACHE_NOTIFICATION_CHECK) !== false) {
@@ -42,7 +48,6 @@ class NotificationService extends Component
         }
         $cache->set(Constants::CACHE_NOTIFICATION_CHECK, time(), Constants::NOTIFICATION_CHECK_INTERVAL);
 
-        $settings = $plugin->getSettings();
         $frequency = EmailFrequency::tryFrom($settings->emailFrequency) ?? EmailFrequency::Never;
 
         if ($frequency === EmailFrequency::Never) {
@@ -60,13 +65,42 @@ class NotificationService extends Component
             return;
         }
 
+        if ($this->hasPendingReport($frequency)) {
+            $logger->debug('Notification check: a report job is already queued, skipping', [
+                'frequency' => $frequency->value,
+            ]);
+            return;
+        }
+
+        $log = $this->createLog($frequency, NotificationStatus::Queued);
+
         $plugin->getQueue()->push(new SendNotificationReport([
             'frequency' => $frequency->value,
+            'logId' => $log->id,
         ]));
         $logger->info('Notification check: queued SendNotificationReport job', [
             'frequency' => $frequency->value,
             'recipients' => count($settings->emailRecipients),
         ]);
+    }
+
+    /**
+     * Whether a queued report job is still waiting to be picked up.
+     *
+     * Queued log rows older than NOTIFICATION_PENDING_TTL are treated as
+     * stale (e.g. the job was manually deleted), so a lost job can never
+     * block reports forever.
+     */
+    private function hasPendingReport(EmailFrequency $frequency): bool
+    {
+        $staleCutoff = (new DateTime())
+            ->modify('-' . Constants::NOTIFICATION_PENDING_TTL . ' seconds')
+            ->format('Y-m-d H:i:s');
+
+        return NotificationLogRecord::find()
+            ->where(['frequency' => $frequency->value, 'status' => NotificationStatus::Queued->value])
+            ->andWhere(['>=', 'dateCreated', $staleCutoff])
+            ->exists();
     }
 
     /**
@@ -118,7 +152,7 @@ class NotificationService extends Component
     {
         /** @var NotificationLogRecord|null $record */
         $record = NotificationLogRecord::find()
-            ->where(['frequency' => $frequency->value, 'status' => 'sent'])
+            ->where(['frequency' => $frequency->value, 'status' => NotificationStatus::Sent->value])
             ->orderBy(['sentAt' => SORT_DESC])
             ->one();
 
@@ -130,11 +164,53 @@ class NotificationService extends Component
     }
 
     /**
+     * Entry point for the SendNotificationReport queue job.
+     *
+     * Re-checks that the report is still due right before delivering, so
+     * duplicate jobs that piled up while the queue wasn't running (#10)
+     * collapse into a single email — every job after the first one sees a
+     * fresh "sent" log row and skips itself.
+     */
+    public function sendQueuedReport(EmailFrequency $frequency, ?int $logId = null): void
+    {
+        $log = $logId !== null ? NotificationLogRecord::findOne($logId) : null;
+
+        $settings = Insights::getInstance()->getSettings();
+        $configured = EmailFrequency::tryFrom($settings->emailFrequency) ?? EmailFrequency::Never;
+        if ($configured !== $frequency) {
+            $this->skipLog($log, $frequency, 'configured frequency changed since the job was queued');
+            return;
+        }
+
+        if (!$this->isDue($frequency)) {
+            $this->skipLog($log, $frequency, 'report no longer due');
+            return;
+        }
+
+        $this->sendReport($frequency, $log);
+    }
+
+    /**
+     * Mark a pending log row as skipped and note why.
+     */
+    private function skipLog(?NotificationLogRecord $log, EmailFrequency $frequency, string $reason): void
+    {
+        if ($log !== null) {
+            $log->status = NotificationStatus::Skipped->value;
+            $log->save();
+        }
+        Insights::getInstance()->logger->info("Notification job skipped: {$reason}", [
+            'frequency' => $frequency->value,
+        ]);
+    }
+
+    /**
      * Build the report payload and deliver the email.
      *
-     * Called by SendNotificationReport queue job.
+     * When a pending log record is passed (queue path), its row is updated in
+     * place; otherwise (console path) a fresh audit row is created.
      */
-    public function sendReport(EmailFrequency $frequency): void
+    public function sendReport(EmailFrequency $frequency, ?NotificationLogRecord $log = null): void
     {
         $plugin = Insights::getInstance();
         $settings = $plugin->getSettings();
@@ -154,13 +230,13 @@ class NotificationService extends Component
                 attachment: $attachment,
             );
 
-            $this->logSend($frequency, count($recipients), 'sent');
+            $this->logSend($frequency, count($recipients), NotificationStatus::Sent, null, $log);
             $plugin->logger->info('Insights notification sent', [
                 'frequency' => $frequency->value,
                 'recipients' => count($recipients),
             ]);
         } catch (Throwable $e) {
-            $this->logSend($frequency, count($recipients), 'failed', $e->getMessage());
+            $this->logSend($frequency, count($recipients), NotificationStatus::Failed, $e->getMessage(), $log);
             $plugin->logger->error('Insights notification failed: ' . $e->getMessage(), [
                 'frequency' => $frequency->value,
             ]);
@@ -297,20 +373,37 @@ class NotificationService extends Component
     }
 
     /**
-     * Persist a row in the audit table.
+     * Persist a row in the audit table, updating the pending row in place
+     * when one was handed through from the queue path.
      */
     private function logSend(
         EmailFrequency $frequency,
         int $recipientCount,
-        string $status,
+        NotificationStatus $status,
         ?string $errorMessage = null,
+        ?NotificationLogRecord $record = null,
     ): void {
-        $record = new NotificationLogRecord();
+        $record ??= new NotificationLogRecord();
         $record->frequency = $frequency->value;
         $record->sentAt = (new DateTime())->format('Y-m-d H:i:s');
         $record->recipientCount = $recipientCount;
-        $record->status = $status;
+        $record->status = $status->value;
         $record->errorMessage = $errorMessage;
         $record->save();
+    }
+
+    /**
+     * Create a fresh audit row with the given status.
+     */
+    private function createLog(EmailFrequency $frequency, NotificationStatus $status): NotificationLogRecord
+    {
+        $record = new NotificationLogRecord();
+        $record->frequency = $frequency->value;
+        $record->sentAt = (new DateTime())->format('Y-m-d H:i:s');
+        $record->recipientCount = 0;
+        $record->status = $status->value;
+        $record->save();
+
+        return $record;
     }
 }
