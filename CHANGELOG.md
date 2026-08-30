@@ -1,5 +1,12 @@
 # Release Notes for Insights
 
+## Unreleased
+
+- Fix duplicate report emails when queued notification jobs piled up while the queue wasn't running ([#10](https://github.com/samuelreichor/craft-insights/issues/10))
+- Add a pending state to the notification log so only one report job can be queued at a time
+- Queued report jobs now re-check the configured frequency before sending, so switching to "never" also cancels already-queued jobs
+- Add `useCronForEmails` setting to disable the request-based check and send reports exclusively via `./craft insights/notifications/send`
+
 ## 1.4.0 - 2026-05-16
 
 - Add support for [LLMify](https://plugins.craftcms.com/llmify) when installed
