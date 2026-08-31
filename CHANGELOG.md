@@ -6,6 +6,7 @@
 - Add a pending state to the notification log so only one report job can be queued at a time
 - Queued report jobs now re-check the configured frequency before sending, so switching to "never" also cancels already-queued jobs
 - Add `useCronForEmails` setting to disable the request-based check and send reports exclusively via `./craft insights/notifications/send`
+- Include the notification log in the data retention cleanup and storage stats
 
 ## 1.4.0 - 2026-05-16
 
