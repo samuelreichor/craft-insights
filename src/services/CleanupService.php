@@ -27,7 +27,7 @@ class CleanupService extends Component
     /**
      * Run cleanup for all tables based on data retention settings.
      *
-     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int, llmRequests: int, llmBots: int}
+     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int, notificationLog: int, llmRequests: int, llmBots: int}
      */
     public function cleanup(): array
     {
@@ -55,6 +55,7 @@ class CleanupService extends Component
             'searches' => 0,
             'scrollDepth' => 0,
             'sessions' => 0,
+            'notificationLog' => 0,
             'llmRequests' => 0,
             'llmBots' => 0,
         ];
@@ -135,6 +136,14 @@ class CleanupService extends Component
             ->execute();
         $logger->stopTimer('cleanSessions', ['deleted' => $results['sessions']]);
 
+        // Clean notification log (datetime-based via sentAt)
+        $notificationCutoff = date('Y-m-d H:i:s', strtotime("-{$settings->dataRetentionDays} days"));
+        $logger->startTimer('cleanNotificationLog');
+        $results['notificationLog'] = $db->createCommand()
+            ->delete(Constants::TABLE_NOTIFICATION_LOG, ['<', 'sentAt', $notificationCutoff])
+            ->execute();
+        $logger->stopTimer('cleanNotificationLog', ['deleted' => $results['notificationLog']]);
+
         // Clean LLM requests (daily aggregate, same retention as the rest)
         $logger->startTimer('cleanLlmRequests');
         $results['llmRequests'] = $db->createCommand()
@@ -178,7 +187,7 @@ class CleanupService extends Component
     /**
      * Get statistics about stored data.
      *
-     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int, llmRequests: int, llmBots: int, oldestDate: string|null, newestDate: string|null}
+     * @return array{pageviews: int, referrers: int, campaigns: int, devices: int, countries: int, realtime: int, events: int, outbound: int, searches: int, scrollDepth: int, sessions: int, notificationLog: int, llmRequests: int, llmBots: int, oldestDate: string|null, newestDate: string|null}
      */
     public function getStorageStats(): array
     {
@@ -198,6 +207,7 @@ class CleanupService extends Component
                 'searches' => 0,
                 'scrollDepth' => 0,
                 'sessions' => 0,
+                'notificationLog' => 0,
                 'llmRequests' => 0,
                 'llmBots' => 0,
                 'oldestDate' => null,
@@ -238,6 +248,9 @@ class CleanupService extends Component
                 ->count('*', $db),
             'sessions' => (int)(new Query())
                 ->from(Constants::TABLE_SESSIONS)
+                ->count('*', $db),
+            'notificationLog' => (int)(new Query())
+                ->from(Constants::TABLE_NOTIFICATION_LOG)
                 ->count('*', $db),
             'llmRequests' => (int)(new Query())
                 ->from(Constants::TABLE_LLM_REQUESTS)
