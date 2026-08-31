@@ -1,6 +1,6 @@
 # Release Notes for Insights
 
-## Unreleased
+## 1.4.1 - 2026-08-31
 
 - Fix duplicate report emails when queued notification jobs piled up while the queue wasn't running ([#10](https://github.com/samuelreichor/craft-insights/issues/10))
 - Add a pending state to the notification log so only one report job can be queued at a time
