@@ -1,5 +1,6 @@
 {% extends '_layouts/cp' %}
 {% import '_includes/forms.twig' as forms %}
+{% import 'insights/_components/macros.twig' as m %}
 
 {% do view.registerAssetBundle('samuelreichor\\insights\\web\\assets\\InsightsAsset') %}
 
@@ -151,7 +152,7 @@
                 {% endif %}
             </div>
             {% if topPages|length %}
-            <table class="insights-table" id="table-top-pages">
+            <table class="insights-table insights-table-bars" id="table-top-pages">
                 <thead>
                     <tr>
                         <th>{{ 'Page'|t('insights') }}</th>
@@ -160,9 +161,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% set maxViews = topPages[0].views ?? 1 %}
+                    {% set maxViews = max(topPages|column('views')) %}
                     {% for page in topPages %}
-                    <tr>
+                    <tr style="{{ m.barStyle(page.views, maxViews) }}">
                         <td class="url" title="{{ page.url }}">{{ page.url }}</td>
                         <td class="number">{{ page.views|number_format }}</td>
                         <td class="number">{{ page.uniqueVisitors|number_format }}</td>
@@ -188,7 +189,7 @@
                 {% endif %}
             </div>
             {% if topReferrers|length %}
-            <table class="insights-table" id="table-top-referrers">
+            <table class="insights-table insights-table-bars" id="table-top-referrers">
                 <thead>
                     <tr>
                         <th>{{ 'Source'|t('insights') }}</th>
@@ -197,9 +198,10 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% set maxVisits = max(topReferrers|column('visits')) %}
                     {% for ref in topReferrers %}
-                    <tr>
-                        <td>{{ ref.referrerDomain ?? 'Direct' }}</td>
+                    <tr style="{{ m.barStyle(ref.visits, maxVisits) }}">
+                        <td>{{ ref.referrerDomain ?? 'Direct'|t('insights') }}</td>
                         <td>
                             <span class="insights-badge {{ ref.referrerType }}">{{ ref.referrerType }}</span>
                         </td>
@@ -223,7 +225,7 @@
                 <h2>{{ 'Technology'|t('insights') }}</h2>
             </div>
             {% if devices|length %}
-            <table class="insights-table" id="table-devices">
+            <table class="insights-table insights-table-bars" id="table-devices">
                 <thead>
                     <tr>
                         <th>{{ 'Device'|t('insights') }}</th>
@@ -231,8 +233,9 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% set maxVisits = max(devices|column('visits')) %}
                     {% for device in devices %}
-                    <tr>
+                    <tr style="{{ m.barStyle(device.visits, maxVisits) }}">
                         <td>{{ device.deviceType|capitalize }}</td>
                         <td class="number">{{ device.visits|number_format }}</td>
                     </tr>
@@ -240,7 +243,7 @@
                 </tbody>
             </table>
             <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--insights-gray-200);">
-            <table class="insights-table" id="table-browsers">
+            <table class="insights-table insights-table-bars" id="table-browsers">
                 <thead>
                     <tr>
                         <th>{{ 'Browser'|t('insights') }}</th>
@@ -248,16 +251,17 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% set maxVisits = browsers|length ? max(browsers|column('visits')) : 0 %}
                     {% for browser in browsers|slice(0, 5) %}
-                    <tr>
-                        <td>{{ browser.browserFamily ?? 'Unknown' }}</td>
+                    <tr style="{{ m.barStyle(browser.visits, maxVisits) }}">
+                        <td>{{ browser.browserFamily ?? 'Unknown'|t('insights') }}</td>
                         <td class="number">{{ browser.visits|number_format }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
             <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--insights-gray-200);">
-            <table class="insights-table" id="table-os">
+            <table class="insights-table insights-table-bars" id="table-os">
                 <thead>
                     <tr>
                         <th>{{ 'Operating System'|t('insights') }}</th>
@@ -265,9 +269,10 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% set maxVisits = operatingSystems|length ? max(operatingSystems|column('visits')) : 0 %}
                     {% for os in operatingSystems|slice(0, 5) %}
-                    <tr>
-                        <td>{{ os.osFamily ?? 'Unknown' }}</td>
+                    <tr style="{{ m.barStyle(os.visits, maxVisits) }}">
+                        <td>{{ os.osFamily ?? 'Unknown'|t('insights') }}</td>
                         <td class="number">{{ os.visits|number_format }}</td>
                     </tr>
                     {% endfor %}
@@ -294,7 +299,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topCountries|length %}
-                <table class="insights-table" id="table-top-countries">
+                <table class="insights-table insights-table-bars" id="table-top-countries">
                     <thead>
                         <tr>
                             <th>{{ 'Country'|t('insights') }}</th>
@@ -302,8 +307,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set maxVisits = max(topCountries|column('visits')) %}
                         {% for country in topCountries %}
-                        <tr>
+                        <tr style="{{ m.barStyle(country.visits, maxVisits) }}">
                             <td class="insights-country">
                                 <span class="insights-country-flag">{{ craft.insights.getCountryFlag(country.countryCode) }}</span>
                                 <span>{{ craft.insights.getCountryName(country.countryCode) }}</span>
@@ -387,7 +393,7 @@
                     <div class="insights-entry-exit-col">
                         <h4>{{ 'Entry Pages'|t('insights') }}</h4>
                         {% if topEntryPages|length %}
-                        <table class="insights-table insights-table-compact" id="table-entry-pages">
+                        <table class="insights-table insights-table-compact insights-table-bars" id="table-entry-pages">
                             <thead>
                                 <tr>
                                     <th>{{ 'Page'|t('insights') }}</th>
@@ -395,8 +401,9 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                {% set maxSessions = max(topEntryPages|column('sessions')) %}
                                 {% for page in topEntryPages|slice(0, 5) %}
-                                <tr>
+                                <tr style="{{ m.barStyle(page.sessions, maxSessions) }}">
                                     <td class="url" title="{{ page.url }}">{{ page.url }}</td>
                                     <td class="number">{{ page.sessions|number_format }}</td>
                                 </tr>
@@ -412,7 +419,7 @@
                     <div class="insights-entry-exit-col">
                         <h4>{{ 'Exit Pages'|t('insights') }}</h4>
                         {% if topExitPages|length %}
-                        <table class="insights-table insights-table-compact" id="table-exit-pages">
+                        <table class="insights-table insights-table-compact insights-table-bars" id="table-exit-pages">
                             <thead>
                                 <tr>
                                     <th>{{ 'Page'|t('insights') }}</th>
@@ -420,8 +427,9 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                {% set maxSessions = max(topExitPages|column('sessions')) %}
                                 {% for page in topExitPages|slice(0, 5) %}
-                                <tr>
+                                <tr style="{{ m.barStyle(page.sessions, maxSessions) }}">
                                     <td class="url" title="{{ page.url }}">{{ page.url }}</td>
                                     <td class="number">{{ page.sessions|number_format }}</td>
                                 </tr>
@@ -519,7 +527,7 @@
                     </div>
                 </div>
                 {% endif %}
-                <table class="insights-table" id="table-scroll-depth">
+                <table class="insights-table insights-table-bars" id="table-scroll-depth">
                     <thead>
                         <tr>
                             <th>{{ 'Page'|t('insights') }}</th>
@@ -530,8 +538,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set maxReached = max(scrollDepth|column('milestone25')) %}
                         {% for page in scrollDepth %}
-                        <tr>
+                        <tr style="{{ m.barStyle(page.milestone25, maxReached) }}">
                             <td class="url" title="{{ page.url }}">{{ page.url }}</td>
                             <td class="number">{{ page.milestone25|number_format }}</td>
                             <td class="number">{{ page.milestone50|number_format }}</td>
@@ -625,7 +634,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topCampaigns|length %}
-                <table class="insights-table" id="table-top-campaigns">
+                <table class="insights-table insights-table-bars" id="table-top-campaigns">
                     <thead>
                         <tr>
                             <th>{{ 'Source'|t('insights') }}</th>
@@ -635,8 +644,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set maxVisits = max(topCampaigns|column('visits')) %}
                         {% for campaign in topCampaigns %}
-                        <tr>
+                        <tr style="{{ m.barStyle(campaign.visits, maxVisits) }}">
                             <td>{{ campaign.utmSource ?? '-' }}</td>
                             <td>{{ campaign.utmMedium ?? '-' }}</td>
                             <td>{{ campaign.utmCampaign ?? '-' }}</td>
@@ -699,7 +709,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topEvents|length %}
-                <table class="insights-table" id="table-top-events">
+                <table class="insights-table insights-table-bars" id="table-top-events">
                     <thead>
                         <tr>
                             <th>{{ 'Event'|t('insights') }}</th>
@@ -709,8 +719,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set maxCount = max(topEvents|column('count')) %}
                         {% for event in topEvents %}
-                        <tr>
+                        <tr style="{{ m.barStyle(event.count, maxCount) }}">
                             <td>{{ event.eventName }}</td>
                             <td>
                                 {% if event.eventCategory %}
@@ -779,7 +790,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topOutboundLinks|length %}
-                <table class="insights-table" id="table-top-outbound">
+                <table class="insights-table insights-table-bars" id="table-top-outbound">
                     <thead>
                         <tr>
                             <th>{{ 'Domain'|t('insights') }}</th>
@@ -788,8 +799,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set maxClicks = max(topOutboundLinks|column('clicks')) %}
                         {% for link in topOutboundLinks %}
-                        <tr>
+                        <tr style="{{ m.barStyle(link.clicks, maxClicks) }}">
                             <td>{{ link.targetDomain }}</td>
                             <td class="number">{{ link.clicks|number_format }}</td>
                             <td class="number">{{ link.uniqueVisitors|number_format }}</td>
@@ -850,7 +862,7 @@
             </div>
             {% if plugin('insights').is('pro') %}
                 {% if topSearches|length %}
-                <table class="insights-table" id="table-top-searches">
+                <table class="insights-table insights-table-bars" id="table-top-searches">
                     <thead>
                         <tr>
                             <th>{{ 'Search Term'|t('insights') }}</th>
@@ -859,8 +871,9 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set maxSearches = max(topSearches|column('searches')) %}
                         {% for search in topSearches %}
-                        <tr>
+                        <tr style="{{ m.barStyle(search.searches, maxSearches) }}">
                             <td>{{ search.searchTerm }}</td>
                             <td class="number">{{ search.searches|number_format }}</td>
                             <td class="number">{{ search.uniqueVisitors|number_format }}</td>

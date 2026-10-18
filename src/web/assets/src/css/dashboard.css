@@ -409,6 +409,43 @@
     background: #D1FAE5;
     color: #065F46;
 }
+/* Share bar behind the first cell, width set per row via --insights-bar */
+.insights-table-bars {
+    --insights-bar-color: rgba(59, 130, 246, 0.12);
+}
+
+.insights-table-bars th,
+.insights-table-bars tbody td {
+    border-bottom: none;
+}
+
+.insights-table-bars th:first-child {
+    padding-left: 0;
+}
+
+/* Align the last column with the card edge ("View all" link) */
+.insights-table-bars th:last-child,
+.insights-table-bars td:last-child {
+    padding-right: 0;
+}
+
+.insights-table-bars tbody td:first-child {
+    position: relative;
+    z-index: 0;
+}
+
+.insights-table-bars tbody td:first-child::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    width: var(--insights-bar, 0%);
+    border-radius: var(--small-border-radius, 3px);
+    background: var(--insights-bar-color);
+    z-index: -1;
+}
+
 
 .insights-badge.direct {
     background: var(--insights-gray-100);
