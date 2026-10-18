@@ -18,6 +18,24 @@ use yii\web\Response;
 class DashboardController extends Controller
 {
     /**
+     * @inheritdoc
+     */
+    public function beforeAction($action): bool
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        // Make the plugin's strings available to Craft.t('insights', …) in CP views
+        if (!$this->request->getAcceptsJson()) {
+            $messages = require Insights::getInstance()->getBasePath() . '/translations/en/insights.php';
+            $this->view->registerTranslations('insights', array_keys($messages));
+        }
+
+        return true;
+    }
+
+    /**
      * Main dashboard view.
      */
     public function actionIndex(): Response
