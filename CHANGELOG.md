@@ -1,5 +1,20 @@
 # Release Notes for Insights
 
+## 1.5.0 - 2026-10-18
+
+- Add share bars to dashboard tables ([#12](https://github.com/samuelreichor/craft-insights/issues/12))
+- Add the previous period for pageviews and visitors as dashed lines to the traffic chart ([#12](https://github.com/samuelreichor/craft-insights/issues/12))
+- Add icons to the KPI cards and hints to empty dashboard cards ([#12](https://github.com/samuelreichor/craft-insights/issues/12))
+- Add German translation
+- Add `translations/en/insights.php` as a starting point for new translations
+- Refine dashboard card styling to match the Craft control panel ([#12](https://github.com/samuelreichor/craft-insights/issues/12))
+- Fix homepage pageviews being attributed to the most recently created entry instead of the homepage ([#13](https://github.com/samuelreichor/craft-insights/issues/13))
+- Fix pages with non-ASCII characters in their URL not being matched to their entry. Tracked URLs are now stored decoded, so reports show `/vijesti/šećer` instead of `/vijesti/%C5%A1e%C4%87er`. Already stored URLs are not migrated ([#13](https://github.com/samuelreichor/craft-insights/issues/13))
+- Fix strings in control panel JavaScript never being translated
+- Fix the operating system table not updating during the dashboard's live refresh
+- Fix `insights/seed` storing zero values for pageviews, traffic sources, campaigns, devices, countries and events
+- Remove the duplicate Chart.js include from jsDelivr, the bundled copy is used instead
+
 ## 1.4.1 - 2026-08-31
 
 - Fix duplicate report emails when queued notification jobs piled up while the queue wasn't running ([#10](https://github.com/samuelreichor/craft-insights/issues/10))
