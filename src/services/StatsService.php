@@ -117,29 +117,63 @@ class StatsService extends Component
     /**
      * Get chart data for pageviews and visitors over time.
      *
-     * @return array{labels: string[], pageviews: int[], visitors: int[]}
+     * The previous period has the same length as the current one and is
+     * aligned day by day, so index i in both series covers comparable days.
+     *
+     * @return array{labels: string[], pageviews: int[], visitors: int[], previousLabels: string[], previousPageviews: int[], previousVisitors: int[]}
      */
     public function getChartData(int $siteId, string $range): array
     {
         [$startDate, $endDate] = $this->getDateRange($range);
-        $db = $this->getDb();
+        [$prevStartDate, $prevEndDate] = $this->getPreviousDateRange($range);
 
-        // Get pageviews per day
-        $pageviewsQuery = (new Query())
-            ->select([
-                'date',
-                'SUM([[views]]) as pageviews',
-            ])
-            ->from(Constants::TABLE_PAGEVIEWS)
-            ->where(['siteId' => $siteId])
-            ->andWhere(['>=', 'date', $startDate])
-            ->andWhere(['<=', 'date', $endDate])
-            ->groupBy(['date'])
-            ->orderBy(['date' => SORT_ASC])
-            ->all($db);
+        $pageviewsData = $this->getDailyPageviews($siteId, $startDate, $endDate);
+        $visitorsData = $this->getDailyVisitors($siteId, $startDate, $endDate);
+        $prevPageviewsData = $this->getDailyPageviews($siteId, $prevStartDate, $prevEndDate);
+        $prevVisitorsData = $this->getDailyVisitors($siteId, $prevStartDate, $prevEndDate);
 
-        // Get unique visitors per day from sessions table
-        $visitorsQuery = (new Query())
+        $labels = [];
+        $pageviews = [];
+        $visitors = [];
+        $previousLabels = [];
+        $previousPageviews = [];
+        $previousVisitors = [];
+
+        $current = new DateTime($startDate);
+        $previous = new DateTime($prevStartDate);
+        $end = new DateTime($endDate);
+
+        while ($current <= $end) {
+            $date = $current->format('Y-m-d');
+            $prevDate = $previous->format('Y-m-d');
+            $labels[] = $current->format('M j');
+            $pageviews[] = $pageviewsData[$date] ?? 0;
+            $visitors[] = $visitorsData[$date] ?? 0;
+            $previousLabels[] = $previous->format('M j');
+            $previousPageviews[] = $prevPageviewsData[$prevDate] ?? 0;
+            $previousVisitors[] = $prevVisitorsData[$prevDate] ?? 0;
+            $current->modify('+1 day');
+            $previous->modify('+1 day');
+        }
+
+        return [
+            'labels' => $labels,
+            'pageviews' => $pageviews,
+            'visitors' => $visitors,
+            'previousLabels' => $previousLabels,
+            'previousPageviews' => $previousPageviews,
+            'previousVisitors' => $previousVisitors,
+        ];
+    }
+
+    /**
+     * Get unique visitors per day from the sessions table, keyed by date (Y-m-d).
+     *
+     * @return array<string, int>
+     */
+    private function getDailyVisitors(int $siteId, string $startDate, string $endDate): array
+    {
+        $rows = (new Query())
             ->select([
                 'date',
                 'COUNT(DISTINCT [[visitorHash]]) as visitors',
@@ -149,40 +183,41 @@ class StatsService extends Component
             ->andWhere(['>=', 'date', $startDate])
             ->andWhere(['<=', 'date', $endDate])
             ->groupBy(['date'])
-            ->orderBy(['date' => SORT_ASC])
-            ->all($db);
+            ->all($this->getDb());
 
-        // Build data arrays
-        $pageviewsData = [];
-        foreach ($pageviewsQuery as $row) {
-            $pageviewsData[$row['date']] = (int)$row['pageviews'];
+        $data = [];
+        foreach ($rows as $row) {
+            $data[$row['date']] = (int)$row['visitors'];
         }
 
-        $visitorsData = [];
-        foreach ($visitorsQuery as $row) {
-            $visitorsData[$row['date']] = (int)$row['visitors'];
+        return $data;
+    }
+
+    /**
+     * Get pageviews per day, keyed by date (Y-m-d).
+     *
+     * @return array<string, int>
+     */
+    private function getDailyPageviews(int $siteId, string $startDate, string $endDate): array
+    {
+        $rows = (new Query())
+            ->select([
+                'date',
+                'SUM([[views]]) as pageviews',
+            ])
+            ->from(Constants::TABLE_PAGEVIEWS)
+            ->where(['siteId' => $siteId])
+            ->andWhere(['>=', 'date', $startDate])
+            ->andWhere(['<=', 'date', $endDate])
+            ->groupBy(['date'])
+            ->all($this->getDb());
+
+        $data = [];
+        foreach ($rows as $row) {
+            $data[$row['date']] = (int)$row['pageviews'];
         }
 
-        $labels = [];
-        $pageviews = [];
-        $visitors = [];
-
-        $current = new DateTime($startDate);
-        $end = new DateTime($endDate);
-
-        while ($current <= $end) {
-            $date = $current->format('Y-m-d');
-            $labels[] = $current->format('M j');
-            $pageviews[] = $pageviewsData[$date] ?? 0;
-            $visitors[] = $visitorsData[$date] ?? 0;
-            $current->modify('+1 day');
-        }
-
-        return [
-            'labels' => $labels,
-            'pageviews' => $pageviews,
-            'visitors' => $visitors,
-        ];
+        return $data;
     }
 
     /**

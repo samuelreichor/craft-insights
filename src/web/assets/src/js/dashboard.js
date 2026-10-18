@@ -37,13 +37,16 @@
             var ctx = document.getElementById('insights-chart');
             if (!ctx || typeof Chart === 'undefined') return;
 
+            var self = this;
+            this.previousLabels = data.previousLabels || [];
+
             this.chart = new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: data.labels,
                     datasets: [
                         {
-                            label: 'Pageviews',
+                            label: this.t('Pageviews'),
                             data: data.pageviews,
                             borderColor: '#3B82F6',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -51,11 +54,37 @@
                             tension: 0.3
                         },
                         {
-                            label: 'Visitors',
+                            label: this.t('Visitors'),
                             data: data.visitors,
                             borderColor: '#10B981',
                             backgroundColor: 'rgba(16, 185, 129, 0.1)',
                             fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: this.t('Pageviews (previous period)'),
+                            tooltipLabel: this.t('Pageviews'),
+                            data: data.previousPageviews || [],
+                            borderColor: '#93C5FD',
+                            backgroundColor: 'transparent',
+                            borderDash: [6, 4],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            fill: false,
+                            tension: 0.3
+                        },
+                        {
+                            label: this.t('Visitors (previous period)'),
+                            tooltipLabel: this.t('Visitors'),
+                            data: data.previousVisitors || [],
+                            borderColor: '#6EE7B7',
+                            backgroundColor: 'transparent',
+                            borderDash: [6, 4],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            fill: false,
                             tension: 0.3
                         }
                     ]
@@ -72,14 +101,37 @@
                             position: 'top',
                             labels: {
                                 usePointStyle: true,
-                                padding: 20
+                                // Slightly wider than the 16px marker, leaving a gap before the label
+                                pointStyleWidth: 20,
+                                padding: 20,
+                                // Line markers instead of dots; Chart.js draws its 'line' style
+                                // solid, so dashed series get a custom marker
+                                generateLabels: function(chart) {
+                                    var items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                    items.forEach(function(item) {
+                                        var dataset = chart.data.datasets[item.datasetIndex];
+                                        item.pointStyle = self.legendLine(dataset.borderColor, !!dataset.borderDash);
+                                    });
+                                    return items;
+                                }
                             }
                         },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.8)',
                             padding: 12,
                             titleFont: { size: 14 },
-                            bodyFont: { size: 13 }
+                            bodyFont: { size: 13 },
+                            callbacks: {
+                                // Previous-period series show their compare date, e.g. "Pageviews (Aug 20): 155"
+                                label: function(context) {
+                                    var label = context.dataset.label;
+                                    var compareDate = self.previousLabels[context.dataIndex];
+                                    if (context.dataset.tooltipLabel && compareDate) {
+                                        label = context.dataset.tooltipLabel + ' (' + compareDate + ')';
+                                    }
+                                    return label + ': ' + self.formatNumber(context.parsed.y);
+                                }
+                            }
                         }
                     },
                     scales: {
@@ -194,7 +246,7 @@
                 var trendClass = data.pageviewsTrend >= 0 ? 'positive' : 'negative';
                 var arrow = data.pageviewsTrend >= 0 ? '↑' : '↓';
                 pageviewsTrend.className = 'insights-kpi-trend ' + trendClass;
-                pageviewsTrend.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.pageviewsTrend) + '% vs previous period';
+                pageviewsTrend.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.pageviewsTrend) + '% ' + this.escapeHtml(this.t('vs previous period'));
             }
 
             // Unique Visitors
@@ -207,7 +259,7 @@
                 var trendClass = data.visitorsTrend >= 0 ? 'positive' : 'negative';
                 var arrow = data.visitorsTrend >= 0 ? '↑' : '↓';
                 visitorsTrend.className = 'insights-kpi-trend ' + trendClass;
-                visitorsTrend.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.visitorsTrend) + '% vs previous period';
+                visitorsTrend.innerHTML = '<span>' + arrow + '</span> ' + Math.abs(data.visitorsTrend) + '% ' + this.escapeHtml(this.t('vs previous period'));
             }
 
             // Avg Time on Page
@@ -234,6 +286,9 @@
             this.chart.data.labels = data.labels;
             this.chart.data.datasets[0].data = data.pageviews;
             this.chart.data.datasets[1].data = data.visitors;
+            this.chart.data.datasets[2].data = data.previousPageviews || [];
+            this.chart.data.datasets[3].data = data.previousVisitors || [];
+            this.previousLabels = data.previousLabels || [];
             this.chart.update('none'); // 'none' for no animation on update
         },
 
@@ -556,6 +611,49 @@
         },
 
         /**
+         * Translate a string from the insights category
+         */
+        t: function(message, params) {
+            return typeof Craft !== 'undefined' && Craft.t ? Craft.t('insights', message, params) : message;
+        },
+
+        /**
+         * Small canvas used as a legend marker: a solid or dashed line
+         */
+        legendLine: function(color, dashed) {
+            var canvas = document.createElement('canvas');
+            canvas.width = 16;
+            canvas.height = 4;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            if (dashed) {
+                for (var x = 0; x < canvas.width; x += 6) {
+                    ctx.fillRect(x, 1, 4, 2);
+                }
+            } else {
+                ctx.fillRect(0, 1, canvas.width, 2);
+            }
+            return canvas;
+        },
+
+        /**
+         * Largest numeric value of a field in a list of rows
+         */
+        maxOf: function(rows, field) {
+            return rows.reduce(function(max, row) {
+                return Math.max(max, Number(row[field]) || 0);
+            }, 0);
+        },
+
+        /**
+         * Opening <tr> with a share bar relative to the largest value
+         */
+        barRow: function(value, max) {
+            var percent = max > 0 ? Math.round((Number(value) || 0) / max * 1000) / 10 : 0;
+            return '<tr style="--insights-bar: ' + percent + '%">';
+        },
+
+        /**
          * Capitalize first letter
          */
         capitalize: function(str) {
@@ -631,30 +729,6 @@
             div.textContent = text;
             return div.innerHTML;
         },
-        /**
-         * Translate a string from the insights category
-         */
-        t: function(message, params) {
-            return typeof Craft !== 'undefined' && Craft.t ? Craft.t('insights', message, params) : message;
-        },
-
-        /**
-         * Largest numeric value of a field in a list of rows
-         */
-        maxOf: function(rows, field) {
-            return rows.reduce(function(max, row) {
-                return Math.max(max, Number(row[field]) || 0);
-            }, 0);
-        },
-
-        /**
-         * Opening <tr> with a share bar relative to the largest value
-         */
-        barRow: function(value, max) {
-            var percent = max > 0 ? Math.round((Number(value) || 0) / max * 1000) / 10 : 0;
-            return '<tr style="--insights-bar: ' + percent + '%">';
-        },
-
 
         /**
          * Format number with locale
