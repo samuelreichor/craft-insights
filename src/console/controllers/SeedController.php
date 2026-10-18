@@ -130,6 +130,12 @@ class SeedController extends Controller
                     $hourViews = (int)round($views * $hourFactor);
 
                     if ($hourViews > 0) {
+                        $metrics = [
+                            'views' => $hourViews,
+                            'uniqueVisitors' => (int)round($hourViews * 0.75),
+                            'bounces' => (int)round($hourViews * 0.4),
+                            'totalTimeOnPage' => $hourViews * mt_rand(30, 120),
+                        ];
                         $db->createCommand()->upsert(
                             Constants::TABLE_PAGEVIEWS,
                             array_merge([
@@ -138,14 +144,8 @@ class SeedController extends Controller
                                 'hour' => $h,
                                 'url' => $url,
                                 'entryId' => null,
-                            ], $this->getTimestampFields()),
-                            [
-                                'views' => $hourViews,
-                                'uniqueVisitors' => (int)round($hourViews * 0.75),
-                                'bounces' => (int)round($hourViews * 0.4),
-                                'totalTimeOnPage' => $hourViews * mt_rand(30, 120),
-                                'dateUpdated' => date('Y-m-d H:i:s'),
-                            ]
+                            ], $metrics, $this->getTimestampFields()),
+                            array_merge($metrics, ['dateUpdated' => date('Y-m-d H:i:s')])
                         )->execute();
                         $count++;
                     }
@@ -183,6 +183,9 @@ class SeedController extends Controller
                 $visits = (int)round($ref['weight'] * (mt_rand(80, 120) / 100));
 
                 if ($visits > 0) {
+                    $metrics = [
+                        'visits' => $visits,
+                    ];
                     $db->createCommand()->upsert(
                         Constants::TABLE_REFERRERS,
                         array_merge([
@@ -190,11 +193,8 @@ class SeedController extends Controller
                             'date' => $date,
                             'referrerDomain' => $ref['domain'],
                             'referrerType' => $ref['type'],
-                        ], $this->getTimestampFields()),
-                        [
-                            'visits' => $visits,
-                            'dateUpdated' => date('Y-m-d H:i:s'),
-                        ]
+                        ], $metrics, $this->getTimestampFields()),
+                        array_merge($metrics, ['dateUpdated' => date('Y-m-d H:i:s')])
                     )->execute();
                     $count++;
                 }
@@ -227,6 +227,9 @@ class SeedController extends Controller
                 $visits = (int)round($c['weight'] * (mt_rand(70, 130) / 100));
 
                 if ($visits > 0) {
+                    $metrics = [
+                        'visits' => $visits,
+                    ];
                     $db->createCommand()->upsert(
                         Constants::TABLE_CAMPAIGNS,
                         array_merge([
@@ -235,11 +238,8 @@ class SeedController extends Controller
                             'utmSource' => $c['source'],
                             'utmMedium' => $c['medium'],
                             'utmCampaign' => $c['campaign'],
-                        ], $this->getTimestampFields()),
-                        [
-                            'visits' => $visits,
-                            'dateUpdated' => date('Y-m-d H:i:s'),
-                        ]
+                        ], $metrics, $this->getTimestampFields()),
+                        array_merge($metrics, ['dateUpdated' => date('Y-m-d H:i:s')])
                     )->execute();
                     $count++;
                 }
@@ -278,6 +278,9 @@ class SeedController extends Controller
                 $visits = (int)round($dev['weight'] * (mt_rand(80, 120) / 100));
 
                 if ($visits > 0) {
+                    $metrics = [
+                        'visits' => $visits,
+                    ];
                     $db->createCommand()->upsert(
                         Constants::TABLE_DEVICES,
                         array_merge([
@@ -286,11 +289,8 @@ class SeedController extends Controller
                             'deviceType' => $dev['type'],
                             'browserFamily' => $dev['browser'],
                             'osFamily' => $dev['os'],
-                        ], $this->getTimestampFields()),
-                        [
-                            'visits' => $visits,
-                            'dateUpdated' => date('Y-m-d H:i:s'),
-                        ]
+                        ], $metrics, $this->getTimestampFields()),
+                        array_merge($metrics, ['dateUpdated' => date('Y-m-d H:i:s')])
                     )->execute();
                     $count++;
                 }
@@ -327,17 +327,17 @@ class SeedController extends Controller
                 $visits = (int)round($c['weight'] * (mt_rand(80, 120) / 100));
 
                 if ($visits > 0) {
+                    $metrics = [
+                        'visits' => $visits,
+                    ];
                     $db->createCommand()->upsert(
                         Constants::TABLE_COUNTRIES,
                         array_merge([
                             'siteId' => $siteId,
                             'date' => $date,
                             'countryCode' => $c['code'],
-                        ], $this->getTimestampFields()),
-                        [
-                            'visits' => $visits,
-                            'dateUpdated' => date('Y-m-d H:i:s'),
-                        ]
+                        ], $metrics, $this->getTimestampFields()),
+                        array_merge($metrics, ['dateUpdated' => date('Y-m-d H:i:s')])
                     )->execute();
                     $count++;
                 }
@@ -389,6 +389,10 @@ class SeedController extends Controller
                         $hourCount = (int)round($eventCount * $hourFactor);
 
                         if ($hourCount > 0) {
+                            $metrics = [
+                                'count' => $hourCount,
+                                'uniqueVisitors' => (int)round($hourCount * 0.7),
+                            ];
                             $db->createCommand()->upsert(
                                 Constants::TABLE_EVENTS,
                                 array_merge([
@@ -398,12 +402,8 @@ class SeedController extends Controller
                                     'eventName' => $event['name'],
                                     'eventCategory' => $event['category'],
                                     'url' => $event['url'],
-                                ], $this->getTimestampFields()),
-                                [
-                                    'count' => $hourCount,
-                                    'uniqueVisitors' => (int)round($hourCount * 0.7),
-                                    'dateUpdated' => date('Y-m-d H:i:s'),
-                                ]
+                                ], $metrics, $this->getTimestampFields()),
+                                array_merge($metrics, ['dateUpdated' => date('Y-m-d H:i:s')])
                             )->execute();
                             $count++;
                         }
