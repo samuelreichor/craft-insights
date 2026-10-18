@@ -1,0 +1,7 @@
+{#
+ # Inline style for the share bar behind a table row, relative to the
+ # largest value in the table.
+ #}
+{% macro barStyle(value, max) -%}
+    --insights-bar: {{ max > 0 ? (value / max * 100)|round(1) : 0 }}%
+{%- endmacro %}

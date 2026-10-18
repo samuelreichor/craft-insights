@@ -133,7 +133,7 @@
                 self.updateChart(data.chartData);
                 self.updateTopPages(data.topPages);
                 self.updateTopReferrers(data.topReferrers);
-                self.updateDevices(data.devices, data.browsers);
+                self.updateDevices(data.devices, data.browsers, data.operatingSystems);
                 self.updateTopCampaigns(data.topCampaigns);
                 self.updateTopCountries(data.topCountries);
                 self.updateTopEvents(data.topEvents);
@@ -248,8 +248,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'views');
             data.forEach(function(page) {
-                html += '<tr>';
+                html += self.barRow(page.views, max);
                 html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
                 html += '<td class="number">' + self.formatNumber(page.views) + '</td>';
                 html += '<td class="number">' + self.formatNumber(page.uniqueVisitors) + '</td>';
@@ -269,9 +270,10 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'visits');
             data.forEach(function(ref) {
-                var domain = ref.referrerDomain || 'Direct';
-                html += '<tr>';
+                var domain = ref.referrerDomain || self.t('Direct');
+                html += self.barRow(ref.visits, max);
                 html += '<td>' + self.escapeHtml(domain) + '</td>';
                 html += '<td><span class="insights-badge ' + ref.referrerType + '">' + ref.referrerType + '</span></td>';
                 html += '<td class="number">' + self.formatNumber(ref.visits) + '</td>';
@@ -283,15 +285,17 @@
         /**
          * Update devices & browsers tables
          */
-        updateDevices: function(devices, browsers) {
+        updateDevices: function(devices, browsers, operatingSystems) {
+            var self = this;
+
             if (devices) {
                 var devicesTbody = document.querySelector('#table-devices tbody');
                 if (devicesTbody) {
                     var html = '';
-                    var self = this;
+                    var max = this.maxOf(devices, 'visits');
                     devices.forEach(function(device) {
-                        html += '<tr>';
-                        html += '<td>' + self.capitalize(device.deviceType) + '</td>';
+                        html += self.barRow(device.visits, max);
+                        html += '<td>' + self.escapeHtml(self.capitalize(device.deviceType)) + '</td>';
                         html += '<td class="number">' + self.formatNumber(device.visits) + '</td>';
                         html += '</tr>';
                     });
@@ -299,20 +303,29 @@
                 }
             }
 
-            if (browsers) {
-                var browsersTbody = document.querySelector('#table-browsers tbody');
-                if (browsersTbody) {
-                    var html = '';
-                    var self = this;
-                    browsers.slice(0, 5).forEach(function(browser) {
-                        html += '<tr>';
-                        html += '<td>' + (browser.browserFamily || 'Unknown') + '</td>';
-                        html += '<td class="number">' + self.formatNumber(browser.visits) + '</td>';
-                        html += '</tr>';
-                    });
-                    browsersTbody.innerHTML = html;
-                }
-            }
+            this.updateFamilyTable('#table-browsers', browsers, 'browserFamily');
+            this.updateFamilyTable('#table-os', operatingSystems, 'osFamily');
+        },
+
+        /**
+         * Update a browser or OS table (top 5 rows)
+         */
+        updateFamilyTable: function(selector, data, field) {
+            if (!data) return;
+
+            var tbody = document.querySelector(selector + ' tbody');
+            if (!tbody) return;
+
+            var html = '';
+            var self = this;
+            var max = this.maxOf(data, 'visits');
+            data.slice(0, 5).forEach(function(row) {
+                html += self.barRow(row.visits, max);
+                html += '<td>' + self.escapeHtml(row[field] || self.t('Unknown')) + '</td>';
+                html += '<td class="number">' + self.formatNumber(row.visits) + '</td>';
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
         },
 
         /**
@@ -326,8 +339,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'visits');
             data.forEach(function(campaign) {
-                html += '<tr>';
+                html += self.barRow(campaign.visits, max);
                 html += '<td>' + self.escapeHtml(campaign.utmSource || '-') + '</td>';
                 html += '<td>' + self.escapeHtml(campaign.utmMedium || '-') + '</td>';
                 html += '<td>' + self.escapeHtml(campaign.utmCampaign || '-') + '</td>';
@@ -348,8 +362,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'visits');
             data.forEach(function(country) {
-                html += '<tr>';
+                html += self.barRow(country.visits, max);
                 html += '<td class="insights-country">';
                 html += '<span class="insights-country-flag">' + country.flag + '</span>';
                 html += '<span>' + self.escapeHtml(country.name) + '</span>';
@@ -371,8 +386,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'count');
             data.forEach(function(event) {
-                html += '<tr>';
+                html += self.barRow(event.count, max);
                 html += '<td>' + self.escapeHtml(event.eventName) + '</td>';
                 html += '<td>';
                 if (event.eventCategory) {
@@ -399,8 +415,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'clicks');
             data.forEach(function(link) {
-                html += '<tr>';
+                html += self.barRow(link.clicks, max);
                 html += '<td>' + self.escapeHtml(link.targetDomain) + '</td>';
                 html += '<td class="number">' + self.formatNumber(link.clicks) + '</td>';
                 html += '<td class="number">' + self.formatNumber(link.uniqueVisitors) + '</td>';
@@ -420,8 +437,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'searches');
             data.forEach(function(search) {
-                html += '<tr>';
+                html += self.barRow(search.searches, max);
                 html += '<td>' + self.escapeHtml(search.searchTerm) + '</td>';
                 html += '<td class="number">' + self.formatNumber(search.searches) + '</td>';
                 html += '<td class="number">' + self.formatNumber(search.uniqueVisitors) + '</td>';
@@ -441,8 +459,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'sessions');
             data.slice(0, 5).forEach(function(page) {
-                html += '<tr>';
+                html += self.barRow(page.sessions, max);
                 html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
                 html += '<td class="number">' + self.formatNumber(page.sessions) + '</td>';
                 html += '</tr>';
@@ -461,8 +480,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'sessions');
             data.slice(0, 5).forEach(function(page) {
-                html += '<tr>';
+                html += self.barRow(page.sessions, max);
                 html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
                 html += '<td class="number">' + self.formatNumber(page.sessions) + '</td>';
                 html += '</tr>';
@@ -499,8 +519,9 @@
 
             var html = '';
             var self = this;
+            var max = this.maxOf(data, 'milestone25');
             data.forEach(function(page) {
-                html += '<tr>';
+                html += self.barRow(page.milestone25, max);
                 html += '<td class="url" title="' + self.escapeHtml(page.url) + '">' + self.escapeHtml(page.url) + '</td>';
                 html += '<td class="number">' + self.formatNumber(page.milestone25) + '</td>';
                 html += '<td class="number">' + self.formatNumber(page.milestone50) + '</td>';
@@ -610,6 +631,30 @@
             div.textContent = text;
             return div.innerHTML;
         },
+        /**
+         * Translate a string from the insights category
+         */
+        t: function(message, params) {
+            return typeof Craft !== 'undefined' && Craft.t ? Craft.t('insights', message, params) : message;
+        },
+
+        /**
+         * Largest numeric value of a field in a list of rows
+         */
+        maxOf: function(rows, field) {
+            return rows.reduce(function(max, row) {
+                return Math.max(max, Number(row[field]) || 0);
+            }, 0);
+        },
+
+        /**
+         * Opening <tr> with a share bar relative to the largest value
+         */
+        barRow: function(value, max) {
+            var percent = max > 0 ? Math.round((Number(value) || 0) / max * 1000) / 10 : 0;
+            return '<tr style="--insights-bar: ' + percent + '%">';
+        },
+
 
         /**
          * Format number with locale
