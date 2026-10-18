@@ -78,7 +78,10 @@
     {% if currentUser.can('insights:viewDashboardKpis') %}
     <div class="insights-kpis" id="insights-kpis">
         <div class="insights-kpi" data-kpi="pageviews">
-            <div class="insights-kpi-label">{{ 'Pageviews'|t('insights') }}</div>
+            <div class="insights-kpi-header">
+                <div class="insights-kpi-label">{{ 'Pageviews'|t('insights') }}</div>
+                <span class="insights-kpi-icon" aria-hidden="true">{{ svg('@appicons/eye.svg')|attr({ width: 14, height: 14 }) }}</span>
+            </div>
             <div class="insights-kpi-value">{{ summary.pageviews|number_format }}</div>
             <div class="insights-kpi-trend {{ summary.pageviewsTrend >= 0 ? 'positive' : 'negative' }}">
                 {% if summary.pageviewsTrend >= 0 %}
@@ -90,7 +93,10 @@
             </div>
         </div>
         <div class="insights-kpi" data-kpi="visitors">
-            <div class="insights-kpi-label">{{ 'Unique Visitors'|t('insights') }}</div>
+            <div class="insights-kpi-header">
+                <div class="insights-kpi-label">{{ 'Unique Visitors'|t('insights') }}</div>
+                <span class="insights-kpi-icon" aria-hidden="true">{{ svg('@appicons/users.svg')|attr({ width: 14, height: 14 }) }}</span>
+            </div>
             <div class="insights-kpi-value">{{ summary.uniqueVisitors|number_format }}</div>
             <div class="insights-kpi-trend {{ summary.visitorsTrend >= 0 ? 'positive' : 'negative' }}">
                 {% if summary.visitorsTrend >= 0 %}
@@ -102,7 +108,10 @@
             </div>
         </div>
         <div class="insights-kpi" data-kpi="avgTime">
-            <div class="insights-kpi-label">{{ 'Avg. Time on Page'|t('insights') }}</div>
+            <div class="insights-kpi-header">
+                <div class="insights-kpi-label">{{ 'Avg. Time on Page'|t('insights') }}</div>
+                <span class="insights-kpi-icon" aria-hidden="true">{{ svg('@appicons/clock.svg')|attr({ width: 14, height: 14 }) }}</span>
+            </div>
             <div class="insights-kpi-value">
                 {% set minutes = (summary.avgTimeOnPage / 60)|round(0, 'floor') %}
                 {% set seconds = summary.avgTimeOnPage % 60 %}
@@ -111,7 +120,10 @@
             <div class="insights-kpi-trend neutral">{{ 'Average per pageview'|t('insights') }}</div>
         </div>
         <div class="insights-kpi" data-kpi="bounceRate">
-            <div class="insights-kpi-label">{{ 'Bounce Rate'|t('insights') }}</div>
+            <div class="insights-kpi-header">
+                <div class="insights-kpi-label">{{ 'Bounce Rate'|t('insights') }}</div>
+                <span class="insights-kpi-icon" aria-hidden="true">{{ svg('@appicons/arrow-right-from-bracket.svg')|attr({ width: 14, height: 14 }) }}</span>
+            </div>
             <div class="insights-kpi-value">{{ summary.bounceRate }}%</div>
             <div class="insights-kpi-trend neutral">{{ 'Single page visits'|t('insights') }}</div>
         </div>
@@ -172,9 +184,11 @@
                 </tbody>
             </table>
             {% else %}
-            <div class="insights-empty">
-                <p>{{ 'No data available yet'|t('insights') }}</p>
-            </div>
+            {% include 'insights/_components/empty-state.twig' with {
+                icon: 'file-lines',
+                message: 'No data available yet'|t('insights'),
+                hint: 'Pages appear here as soon as the tracking script records the first visit.'|t('insights'),
+            } only %}
             {% endif %}
         </div>
         {% endif %}
@@ -211,9 +225,11 @@
                 </tbody>
             </table>
             {% else %}
-            <div class="insights-empty">
-                <p>{{ 'No referrer data yet'|t('insights') }}</p>
-            </div>
+            {% include 'insights/_components/empty-state.twig' with {
+                icon: 'share-nodes',
+                message: 'No referrer data yet'|t('insights'),
+                hint: 'Traffic sources appear once visitors arrive from search engines, social media or other websites.'|t('insights'),
+            } only %}
             {% endif %}
         </div>
         {% endif %}
@@ -279,9 +295,11 @@
                 </tbody>
             </table>
             {% else %}
-            <div class="insights-empty">
-                <p>{{ 'No device data yet'|t('insights') }}</p>
-            </div>
+            {% include 'insights/_components/empty-state.twig' with {
+                icon: 'desktop',
+                message: 'No device data yet'|t('insights'),
+                hint: 'Device, browser and operating system are recorded with every pageview.'|t('insights'),
+            } only %}
             {% endif %}
         </div>
         {% endif %}
@@ -320,9 +338,11 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No country data yet'|t('insights') }}</p>
-                </div>
+                {% include 'insights/_components/empty-state.twig' with {
+                    icon: 'earth-europe',
+                    message: 'No country data yet'|t('insights'),
+                    hint: 'Countries are detected with the GeoIP database. Check the plugin settings if this stays empty.'|t('insights'),
+                } only %}
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">
@@ -411,9 +431,11 @@
                             </tbody>
                         </table>
                         {% else %}
-                        <div class="insights-empty-small">
-                            <p>{{ 'No data yet'|t('insights') }}</p>
-                        </div>
+                        {% include 'insights/_components/empty-state.twig' with {
+                            icon: 'route',
+                            message: 'No data yet'|t('insights'),
+                            small: true,
+                        } only %}
                         {% endif %}
                     </div>
                     <div class="insights-entry-exit-col">
@@ -437,9 +459,11 @@
                             </tbody>
                         </table>
                         {% else %}
-                        <div class="insights-empty-small">
-                            <p>{{ 'No data yet'|t('insights') }}</p>
-                        </div>
+                        {% include 'insights/_components/empty-state.twig' with {
+                            icon: 'route',
+                            message: 'No data yet'|t('insights'),
+                            small: true,
+                        } only %}
                         {% endif %}
                     </div>
                 </div>
@@ -575,9 +599,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="insights-empty-small">
-                    <p>{{ 'No data yet'|t('insights') }}</p>
-                </div>
+                {% include 'insights/_components/empty-state.twig' with {
+                    icon: 'arrows-up-down',
+                    message: 'No data yet'|t('insights'),
+                    small: true,
+                } only %}
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">
@@ -656,10 +682,11 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No campaign data yet'|t('insights') }}</p>
-                    <p class="insights-muted">{{ 'Use UTM parameters (utm_source, utm_medium, utm_campaign) to track campaigns.'|t('insights') }}</p>
-                </div>
+                {% include 'insights/_components/empty-state.twig' with {
+                    icon: 'bullhorn',
+                    message: 'No campaign data yet'|t('insights'),
+                    hint: 'Use UTM parameters (utm_source, utm_medium, utm_campaign) to track campaigns.'|t('insights'),
+                } only %}
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">
@@ -737,10 +764,11 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No event data yet'|t('insights') }}</p>
-                    <p class="insights-muted">{{ 'Use data-insights-event attributes or insights.trackEvent() to track custom events.'|t('insights') }}</p>
-                </div>
+                {% include 'insights/_components/empty-state.twig' with {
+                    icon: 'bolt',
+                    message: 'No event data yet'|t('insights'),
+                    hint: 'Use data-insights-event attributes or insights.trackEvent() to track custom events.'|t('insights'),
+                } only %}
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">
@@ -810,10 +838,11 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No outbound link data yet'|t('insights') }}</p>
-                    <p class="insights-muted">{{ 'External links are tracked automatically when visitors click them.'|t('insights') }}</p>
-                </div>
+                {% include 'insights/_components/empty-state.twig' with {
+                    icon: 'arrow-up-right-from-square',
+                    message: 'No outbound link data yet'|t('insights'),
+                    hint: 'External links are tracked automatically when visitors click them.'|t('insights'),
+                } only %}
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">
@@ -882,10 +911,11 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="insights-empty">
-                    <p>{{ 'No search data yet'|t('insights') }}</p>
-                    <p class="insights-muted">{{ 'Use insights.trackSearch() to track site searches.'|t('insights') }}</p>
-                </div>
+                {% include 'insights/_components/empty-state.twig' with {
+                    icon: 'magnifying-glass',
+                    message: 'No search data yet'|t('insights'),
+                    hint: 'Use insights.trackSearch() to track site searches.'|t('insights'),
+                } only %}
                 {% endif %}
             {% else %}
                 <div class="insights-preview-wrapper">

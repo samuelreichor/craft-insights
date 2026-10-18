@@ -1,0 +1,16 @@
+{#
+ # Empty state for dashboard cards.
+ #
+ # @param string      icon    Craft system icon name (e.g. 'file-lines')
+ # @param string      message Translated headline
+ # @param string|null hint    Translated hint shown below the headline
+ # @param bool        small   Compact variant for nested tables
+ #}
+{% set small = small ?? false %}
+<div class="{{ small ? 'insights-empty-small' : 'insights-empty' }}">
+    <span class="insights-empty-icon" aria-hidden="true">{{ svg('@appicons/' ~ icon ~ '.svg')|attr({ width: small ? 12 : 16, height: small ? 12 : 16 }) }}</span>
+    <p>{{ message }}</p>
+    {% if hint ?? false %}
+        <p class="insights-muted">{{ hint }}</p>
+    {% endif %}
+</div>
