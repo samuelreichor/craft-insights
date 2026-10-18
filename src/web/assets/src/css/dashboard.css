@@ -45,7 +45,7 @@
 .insights-filters select {
     padding: 8px 12px;
     border: 1px solid var(--insights-gray-300);
-    border-radius: 6px;
+    border-radius: var(--small-border-radius, 3px);
     font-size: 14px;
     background: white;
     cursor: pointer;
@@ -61,9 +61,10 @@
 
 .insights-kpi {
     background: white;
-    border-radius: 8px;
+    border-radius: var(--large-border-radius, 5px);
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--insights-gray-200);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .insights-kpi-header {
@@ -142,7 +143,7 @@
 /* Realtime Widget */
 .insights-realtime {
     background: var(--insights-primary);
-    border-radius: 12px;
+    border-radius: var(--large-border-radius, 5px);
     padding: 20px 24px;
     margin-bottom: 24px;
     display: flex;
@@ -237,7 +238,7 @@
     min-width: 24px;
     padding: 6px 6px;
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
+    border-radius: var(--small-border-radius, 3px);
     text-align: center;
     font-weight: 600;
     font-size: 12px;
@@ -272,9 +273,10 @@
 /* Chart */
 .insights-chart-container {
     background: white;
-    border-radius: 8px;
+    border-radius: var(--large-border-radius, 5px);
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--insights-gray-200);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     margin-bottom: 28px;
 }
 
@@ -282,7 +284,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin: -4px -20px 12px;
+    padding: 0 20px 12px;
+    border-bottom: 1px solid var(--insights-gray-100);
 }
 
 .insights-chart-header h2 {
@@ -327,9 +331,10 @@
 /* Tables */
 .insights-table-container {
     background: white;
-    border-radius: 8px;
+    border-radius: var(--large-border-radius, 5px);
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--insights-gray-200);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     overflow-x: auto;
     min-width: 0;
 }
@@ -338,7 +343,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin: -4px -20px 4px;
+    padding: 0 20px 12px;
+    border-bottom: 1px solid var(--insights-gray-100);
 }
 
 .insights-table-header h2 {
@@ -402,43 +409,6 @@
     width: 100px;
 }
 
-.insights-bar {
-    height: 8px;
-    background: var(--insights-gray-100);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.insights-bar-fill {
-    height: 100%;
-    background: var(--insights-primary);
-    border-radius: 4px;
-}
-
-/* Referrer Type Badge */
-.insights-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-}
-
-.insights-badge.search {
-    background: #DBEAFE;
-    color: #1E40AF;
-}
-
-.insights-badge.social {
-    background: #FCE7F3;
-    color: #9D174D;
-}
-
-.insights-badge.referral {
-    background: #D1FAE5;
-    color: #065F46;
-}
 /* Share bar behind the first cell, width set per row via --insights-bar */
 .insights-table-bars {
     --insights-bar-color: rgba(59, 130, 246, 0.12);
@@ -476,6 +446,43 @@
     z-index: -1;
 }
 
+.insights-bar {
+    height: 8px;
+    background: var(--insights-gray-100);
+    border-radius: var(--small-border-radius, 3px);
+    overflow: hidden;
+}
+
+.insights-bar-fill {
+    height: 100%;
+    background: var(--insights-primary);
+    border-radius: var(--small-border-radius, 3px);
+}
+
+/* Referrer Type Badge */
+.insights-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.insights-badge.search {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.insights-badge.social {
+    background: #FCE7F3;
+    color: #9D174D;
+}
+
+.insights-badge.referral {
+    background: #D1FAE5;
+    color: #065F46;
+}
 
 .insights-badge.direct {
     background: var(--insights-gray-100);
@@ -580,7 +587,7 @@
     background: var(--insights-gray-900);
     color: white;
     padding: 6px 10px;
-    border-radius: 4px;
+    border-radius: var(--medium-border-radius, 4px);
     font-size: 12px;
     z-index: 1000;
     pointer-events: none;
@@ -764,7 +771,7 @@
     background: var(--insights-primary);
     color: white;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: var(--small-border-radius, 3px);
     font-size: 14px;
     font-weight: 500;
     text-decoration: none;
@@ -800,7 +807,7 @@
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.7);
-    border-radius: 6px;
+    border-radius: var(--medium-border-radius, 4px);
     gap: 12px;
 }
 
@@ -820,7 +827,7 @@
     background: var(--insights-primary);
     color: white;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: var(--small-border-radius, 3px);
     font-size: 13px;
     font-weight: 500;
     text-decoration: none;
@@ -881,7 +888,8 @@
     gap: 20px;
     padding: 16px;
     background: var(--insights-gray-50);
-    border-radius: 8px;
+    border-radius: var(--medium-border-radius, 4px);
+    margin-top: 16px;
     margin-bottom: 16px;
 }
 
@@ -963,7 +971,8 @@
     justify-content: space-between;
     padding: 16px;
     background: var(--insights-gray-50);
-    border-radius: 8px;
+    border-radius: var(--medium-border-radius, 4px);
+    margin-top: 16px;
     margin-bottom: 16px;
 }
 
@@ -992,7 +1001,7 @@
     align-items: center;
     gap: 4px;
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--small-border-radius, 3px);
 }
 
 .insights-session-kpi-trend.positive {
@@ -1075,7 +1084,7 @@
 .insights-llm-tabs {
     display: inline-flex;
     background: var(--insights-gray-100, #f3f4f6);
-    border-radius: 8px;
+    border-radius: var(--medium-border-radius, 4px);
     padding: 4px;
     gap: 4px;
 }
@@ -1085,7 +1094,7 @@
     border: 0;
     background: transparent;
     padding: 6px 14px;
-    border-radius: 6px;
+    border-radius: var(--small-border-radius, 3px);
     font-size: 13px;
     font-weight: 500;
     color: var(--insights-gray-700, #374151);
