@@ -4,6 +4,7 @@ namespace samuelreichor\insights\services;
 
 use Craft;
 use craft\base\Component;
+use craft\base\Element;
 use craft\elements\Entry;
 use craft\helpers\Db;
 use samuelreichor\insights\Constants;
@@ -219,10 +220,18 @@ class TrackingService extends Component
         $parsed = parse_url($url);
         $path = $parsed['path'] ?? Constants::DEFAULT_PATH;
 
+        // Browsers percent-encode non-ASCII characters in location.pathname.
+        // Decode so stored URLs are readable and match entry URIs; keep the raw
+        // path if decoding produces invalid UTF-8 or control characters.
+        $decoded = rawurldecode($path);
+        if (mb_check_encoding($decoded, 'UTF-8') && !preg_match('/[\x00-\x1F\x7F]/', $decoded)) {
+            $path = $decoded;
+        }
+
         // Normalize
         $path = rtrim($path, '/') ?: Constants::DEFAULT_PATH;
 
-        return substr($path, 0, Constants::MAX_URL_LENGTH);
+        return mb_substr($path, 0, Constants::MAX_URL_LENGTH);
     }
 
     /**
@@ -255,7 +264,8 @@ class TrackingService extends Component
      */
     private function findEntryByUrl(string $url, int $siteId): ?int
     {
-        $cacheKey = Constants::CACHE_VISITOR . "entry_{$siteId}_" . md5($url);
+        // "v2" invalidates IDs cached before homepage/encoded-URL matching was fixed
+        $cacheKey = Constants::CACHE_VISITOR . "entry_v2_{$siteId}_" . md5($url);
 
         // Check cache first (1 hour TTL)
         $cachedId = Craft::$app->cache->get($cacheKey);
@@ -272,11 +282,12 @@ class TrackingService extends Component
             Craft::$app->cache->delete($cacheKey);
         }
 
-        // Try to find an entry matching this URL
+        // Try to find an entry matching this URL. An empty uri would disable the
+        // filter entirely, so the homepage must be matched via Craft's __home__ URI.
+        $uri = trim($url, '/');
         $entry = Entry::find()
-            ->site('*')
             ->siteId($siteId)
-            ->uri(ltrim($url, '/'))
+            ->uri($uri === '' ? Element::HOMEPAGE_URI : $uri)
             ->status(null)
             ->one();
 
